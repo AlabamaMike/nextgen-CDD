@@ -50,11 +50,22 @@ const productionOverrides: Partial<Config> = {
   },
 
   llm: {
-    provider: 'anthropic',
-    model: process.env['ANTHROPIC_MODEL'] ?? 'claude-sonnet-4-20250514',
+    provider: (process.env['LLM_PROVIDER'] ?? 'anthropic') as 'anthropic' | 'vertex-ai',
+    model: process.env['ANTHROPIC_MODEL'] ?? process.env['VERTEX_AI_MODEL'] ?? 'claude-sonnet-4-20250514',
     maxTokens: 4096,
     temperature: 0.5, // Lower temperature for more consistent outputs
     timeout: 120000, // Longer timeout for production
+  },
+
+  vertexAi: {
+    projectId: process.env['GOOGLE_CLOUD_PROJECT'] ?? '',
+    region: process.env['GOOGLE_CLOUD_REGION'] ?? 'us-central1',
+    modelMapping: {
+      'claude-sonnet-4-20250514': 'claude-sonnet-4-20250514',
+      'claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-v2@20241022',
+      'claude-3-haiku-20240307': 'claude-3-haiku@20240307',
+      'claude-3-opus-20240229': 'claude-3-opus@20240229',
+    },
   },
 
   ruvector: {
@@ -135,11 +146,25 @@ const productionOverrides: Partial<Config> = {
  * Validate production configuration
  */
 function validateProductionConfig(): void {
+  const llmProvider = process.env['LLM_PROVIDER'] ?? 'anthropic';
+
+  // Base required variables
   const requiredEnvVars = [
     'JWT_SECRET',
-    'ANTHROPIC_API_KEY',
-    'OPENAI_API_KEY',
+    'OPENAI_API_KEY', // For embeddings
   ];
+
+  // Add provider-specific required variables
+  if (llmProvider === 'vertex-ai') {
+    // Vertex AI uses Application Default Credentials (ADC)
+    // GOOGLE_CLOUD_PROJECT is required for Vertex AI
+    requiredEnvVars.push('GOOGLE_CLOUD_PROJECT');
+    // Note: GOOGLE_APPLICATION_CREDENTIALS is optional if running on GCP
+    // as ADC will use the default service account
+  } else {
+    // Direct Anthropic API requires API key
+    requiredEnvVars.push('ANTHROPIC_API_KEY');
+  }
 
   const missing = requiredEnvVars.filter((v) => !process.env[v]);
 
@@ -151,6 +176,13 @@ function validateProductionConfig(): void {
 
   if ((process.env['JWT_SECRET']?.length ?? 0) < 32) {
     throw new Error('JWT_SECRET must be at least 32 characters in production');
+  }
+
+  // Validate Vertex AI configuration if using that provider
+  if (llmProvider === 'vertex-ai') {
+    console.log('[Config] Using Vertex AI with Application Default Credentials');
+    console.log(`[Config] Project: ${process.env['GOOGLE_CLOUD_PROJECT']}`);
+    console.log(`[Config] Region: ${process.env['GOOGLE_CLOUD_REGION'] ?? 'us-central1'}`);
   }
 }
 

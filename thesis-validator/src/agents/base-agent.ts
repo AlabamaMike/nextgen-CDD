@@ -2,7 +2,7 @@
  * Base Agent - Shared interface and utilities for all agents
  *
  * Provides common functionality for:
- * - LLM interaction
+ * - LLM interaction (via Anthropic direct API or Vertex AI)
  * - Memory access
  * - Event emission
  * - Tool execution
@@ -16,6 +16,13 @@ import type { MarketIntelligence } from '../memory/market-intelligence.js';
 import type { AgentStatus, EngagementEvent } from '../models/events.js';
 import { createAgentStatusEvent } from '../models/events.js';
 import { embed } from '../tools/embedding.js';
+import {
+  LLMProvider,
+  getLLMProvider,
+  getLLMProviderConfig,
+  type LLMProviderConfig,
+  type LLMProviderType,
+} from '../services/llm-provider.js';
 
 /**
  * Agent configuration
@@ -28,6 +35,9 @@ export interface AgentConfig {
   temperature: number;
   systemPrompt: string;
   tools?: AgentTool[];
+  // LLM Provider configuration
+  llmProvider?: LLMProviderType;
+  llmProviderConfig?: Partial<LLMProviderConfig>;
 }
 
 /**
@@ -84,9 +94,10 @@ export interface AgentMessage {
  * Default agent configuration
  */
 const defaultConfig: Partial<AgentConfig> = {
-  model: process.env['ANTHROPIC_MODEL'] ?? 'claude-sonnet-4-20250514',
+  model: process.env['ANTHROPIC_MODEL'] ?? process.env['VERTEX_AI_MODEL'] ?? 'claude-sonnet-4-20250514',
   maxTokens: parseInt(process.env['ANTHROPIC_MAX_TOKENS'] ?? '8192', 10),
   temperature: 0.7,
+  llmProvider: (process.env['LLM_PROVIDER'] as LLMProviderType) ?? 'anthropic',
 };
 
 /**
@@ -94,10 +105,12 @@ const defaultConfig: Partial<AgentConfig> = {
  */
 export abstract class BaseAgent {
   protected config: AgentConfig;
-  protected client: Anthropic;
+  protected client: Anthropic | null = null;
+  protected llmProvider: LLMProvider | null = null;
   protected context: AgentContext | null = null;
   protected status: AgentStatus = 'idle';
   protected conversationHistory: AgentMessage[] = [];
+  protected providerInitialized: boolean = false;
 
   constructor(config: Partial<AgentConfig> & { id: string; name: string; systemPrompt: string }) {
     this.config = {
@@ -105,9 +118,62 @@ export abstract class BaseAgent {
       ...config,
     } as AgentConfig;
 
-    this.client = new Anthropic({
-      apiKey: process.env['ANTHROPIC_API_KEY'],
-    });
+    // Initialize based on provider type
+    this.initializeProvider();
+  }
+
+  /**
+   * Initialize the LLM provider based on configuration
+   */
+  private initializeProvider(): void {
+    const providerType = this.config.llmProvider ?? 'anthropic';
+
+    if (providerType === 'anthropic' && process.env['ANTHROPIC_API_KEY']) {
+      // Use direct Anthropic client for backwards compatibility
+      this.client = new Anthropic({
+        apiKey: process.env['ANTHROPIC_API_KEY'],
+      });
+      this.providerInitialized = true;
+    } else if (providerType === 'vertex-ai') {
+      // LLM Provider will be initialized lazily
+      const providerConfig = getLLMProviderConfig();
+      this.llmProvider = new LLMProvider({
+        ...providerConfig,
+        ...this.config.llmProviderConfig,
+        provider: 'vertex-ai',
+      });
+    } else {
+      // Default to LLM Provider abstraction
+      const providerConfig = getLLMProviderConfig();
+      this.llmProvider = new LLMProvider({
+        ...providerConfig,
+        ...this.config.llmProviderConfig,
+      });
+    }
+  }
+
+  /**
+   * Ensure the LLM provider is initialized (async initialization for Vertex AI)
+   */
+  protected async ensureProviderInitialized(): Promise<void> {
+    if (this.providerInitialized) {
+      return;
+    }
+
+    if (this.llmProvider) {
+      await this.llmProvider.initialize();
+      this.providerInitialized = true;
+    }
+  }
+
+  /**
+   * Get the LLM provider type being used
+   */
+  getProviderType(): LLMProviderType {
+    if (this.client) {
+      return 'anthropic';
+    }
+    return this.llmProvider?.getProviderType() ?? 'anthropic';
   }
 
   /**
@@ -193,6 +259,9 @@ export abstract class BaseAgent {
   ): Promise<{ content: string; tokensUsed: { input: number; output: number } }> {
     this.updateStatus('thinking');
 
+    // Ensure provider is initialized (for Vertex AI async initialization)
+    await this.ensureProviderInitialized();
+
     const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
     // Include conversation history if requested
@@ -203,13 +272,36 @@ export abstract class BaseAgent {
     messages.push({ role: 'user', content: prompt });
 
     try {
-      const response = await this.client.messages.create({
-        model: this.config.model,
-        max_tokens: options?.maxTokens ?? this.config.maxTokens,
-        temperature: options?.temperature ?? this.config.temperature,
-        system: this.config.systemPrompt,
-        messages,
-      });
+      let response: { content: Anthropic.ContentBlock[]; usage: { input_tokens: number; output_tokens: number } };
+
+      if (this.client) {
+        // Use direct Anthropic client
+        response = await this.client.messages.create({
+          model: this.config.model,
+          max_tokens: options?.maxTokens ?? this.config.maxTokens,
+          temperature: options?.temperature ?? this.config.temperature,
+          system: this.config.systemPrompt,
+          messages,
+        });
+      } else if (this.llmProvider) {
+        // Use LLM Provider abstraction (supports Anthropic and Vertex AI)
+        const llmResponse = await this.llmProvider.createMessage({
+          model: this.config.model,
+          maxTokens: options?.maxTokens ?? this.config.maxTokens,
+          temperature: options?.temperature ?? this.config.temperature,
+          system: this.config.systemPrompt,
+          messages,
+        });
+        response = {
+          content: llmResponse.content,
+          usage: {
+            input_tokens: llmResponse.usage.input_tokens,
+            output_tokens: llmResponse.usage.output_tokens,
+          },
+        };
+      } else {
+        throw new Error('No LLM provider available');
+      }
 
       const content = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -250,6 +342,9 @@ export abstract class BaseAgent {
   }> {
     this.updateStatus('thinking');
 
+    // Ensure provider is initialized (for Vertex AI async initialization)
+    await this.ensureProviderInitialized();
+
     const messages: Array<{ role: 'user' | 'assistant'; content: string | Anthropic.ContentBlock[] }> = [];
     const toolCalls: Array<{ tool: string; input: Record<string, unknown>; output: unknown }> = [];
     let totalTokens = { input: 0, output: 0 };
@@ -278,14 +373,38 @@ export abstract class BaseAgent {
       iteration++;
 
       try {
-        const response = await this.client.messages.create({
-          model: this.config.model,
-          max_tokens: this.config.maxTokens,
-          temperature: this.config.temperature,
-          system: this.config.systemPrompt,
-          messages: messages as Anthropic.MessageParam[],
-          tools: anthropicTools,
-        });
+        let response: { content: Anthropic.ContentBlock[]; usage: { input_tokens: number; output_tokens: number } };
+
+        if (this.client) {
+          // Use direct Anthropic client
+          response = await this.client.messages.create({
+            model: this.config.model,
+            max_tokens: this.config.maxTokens,
+            temperature: this.config.temperature,
+            system: this.config.systemPrompt,
+            messages: messages as Anthropic.MessageParam[],
+            tools: anthropicTools,
+          });
+        } else if (this.llmProvider) {
+          // Use LLM Provider abstraction
+          const llmResponse = await this.llmProvider.createMessage({
+            model: this.config.model,
+            maxTokens: this.config.maxTokens,
+            temperature: this.config.temperature,
+            system: this.config.systemPrompt,
+            messages: messages as Array<{ role: 'user' | 'assistant'; content: string | Anthropic.ContentBlock[] }>,
+            tools: anthropicTools,
+          });
+          response = {
+            content: llmResponse.content,
+            usage: {
+              input_tokens: llmResponse.usage.input_tokens,
+              output_tokens: llmResponse.usage.output_tokens,
+            },
+          };
+        } else {
+          throw new Error('No LLM provider available');
+        }
 
         totalTokens.input += response.usage.input_tokens;
         totalTokens.output += response.usage.output_tokens;

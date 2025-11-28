@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+
+# Build output (will be created in container)
+dist
+
+# Development files
+*.log
+*.md
+!README.md
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Environment files (should be provided at runtime)
+.env
+.env.local
+.env.*.local
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__
+coverage
+.nyc_output
+
+# Docker files (not needed in container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Cloud Build files
+cloudbuild.yaml
+
+# Local data
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp

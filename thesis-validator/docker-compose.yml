@@ -1,6 +1,20 @@
 version: '3.8'
 
+# =============================================================================
+# Docker Compose Configuration for Thesis Validator
+# =============================================================================
+# This configuration supports both local development and production deployments.
+#
+# Usage:
+#   Development (Anthropic API): docker-compose up
+#   Development (Vertex AI):     docker-compose --profile vertex-ai up
+#   Production:                  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+# =============================================================================
+
 services:
+  # ---------------------------------------------------------------------------
+  # Redis - Cache and Job Queue
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     ports:
@@ -14,6 +28,9 @@ services:
       timeout: 3s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Primary Database
+  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
     ports:
@@ -31,6 +48,9 @@ services:
       timeout: 3s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # Thesis Validator - Main Application (Anthropic API)
+  # ---------------------------------------------------------------------------
   thesis-validator:
     build:
       context: .
@@ -39,11 +59,51 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - LLM_PROVIDER=anthropic
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://thesis_validator:thesis_validator_secret@postgres:5432/thesis_validator
       - RUVECTOR_PATH=/app/data/ruvector
+      # API Keys (should be provided via .env file or secrets)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production-32chars}
     volumes:
       - ruvector_data:/app/data/ruvector
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Thesis Validator - Main Application (Vertex AI)
+  # Use with: docker-compose --profile vertex-ai up
+  # ---------------------------------------------------------------------------
+  thesis-validator-vertex:
+    profiles: ["vertex-ai"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LLM_PROVIDER=vertex-ai
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_REGION=${GOOGLE_CLOUD_REGION:-us-central1}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://thesis_validator:thesis_validator_secret@postgres:5432/thesis_validator
+      - RUVECTOR_PATH=/app/data/ruvector
+      # API Keys (Vertex AI uses ADC, no Anthropic key needed)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production-32chars}
+    volumes:
+      - ruvector_data:/app/data/ruvector
+      # Mount Google Cloud credentials for local development
+      # For production on GCP, use Workload Identity instead
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-~/.config/gcloud/application_default_credentials.json}:/app/credentials.json:ro
     depends_on:
       redis:
         condition: service_healthy

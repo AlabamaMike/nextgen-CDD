@@ -9,6 +9,7 @@ export const EvidenceSourceTypeSchema = z.enum([
   'expert',
   'data',
   'filing',
+  'financial',  // Financial market data from AlphaVantage MCP
 ]);
 export type EvidenceSourceType = z.infer<typeof EvidenceSourceTypeSchema>;
 

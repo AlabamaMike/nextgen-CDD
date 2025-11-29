@@ -15,13 +15,13 @@ import { createEvidenceFoundEvent } from '../models/events.js';
 import { webSearch } from '../tools/web-search.js';
 import { scoreCredibility } from '../tools/credibility-scorer.js';
 import {
-  getAlphaVantageMCPClient,
+  getAlphaVantageClient,
   gatherFinancialEvidence,
   type FinancialDataResult,
   type StockQuote,
   type CompanyOverview,
   type NewsArticle,
-} from '../tools/alphavantage-mcp.js';
+} from '../tools/alphavantage-rest.js';
 
 /**
  * Evidence gatherer input
@@ -136,7 +136,7 @@ Be thorough but efficient - quality over quantity.`,
         evidence.push(...marketEvidence);
       }
 
-      // Search financial data via AlphaVantage MCP
+      // Search financial data via AlphaVantage REST API
       if (sources.includes('financial')) {
         const financialEvidence = await this.searchFinancialData(
           input.query,
@@ -379,7 +379,7 @@ Output as JSON array of strings:
   }
 
   /**
-   * Search financial data via AlphaVantage MCP
+   * Search financial data via AlphaVantage REST API
    */
   private async searchFinancialData(
     query: string,
@@ -404,7 +404,7 @@ Output as JSON array of strings:
     // If still no symbols, search for relevant companies
     if (targetSymbols.length === 0) {
       try {
-        const client = getAlphaVantageMCPClient();
+        const client = getAlphaVantageClient();
         const searchResults = await client.searchSymbol(query);
         targetSymbols = searchResults.slice(0, 3).map((r) => r.symbol);
       } catch (error) {
@@ -610,7 +610,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
 
   /**
    * Get all available tools for evidence gathering
-   * Includes web search, document search, credibility assessment, and AlphaVantage financial data tools
+   * Includes web search, document search, credibility assessment, and AlphaVantage REST API financial data tools
    */
   public getTools(): AgentTool[] {
     return [
@@ -670,7 +670,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
         }
       ),
 
-      // AlphaVantage MCP Financial Data Tools
+      // AlphaVantage REST API Financial Data Tools
       createTool(
         'get_stock_quote',
         'Get real-time stock quote for a symbol including price, volume, and change',
@@ -682,7 +682,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getQuote(input['symbol'] as string);
         }
       ),
@@ -698,7 +698,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getCompanyOverview(input['symbol'] as string);
         }
       ),
@@ -714,7 +714,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getIncomeStatement(input['symbol'] as string);
         }
       ),
@@ -730,7 +730,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getBalanceSheet(input['symbol'] as string);
         }
       ),
@@ -746,7 +746,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getCashFlow(input['symbol'] as string);
         }
       ),
@@ -762,7 +762,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getEarnings(input['symbol'] as string);
         }
       ),
@@ -787,7 +787,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           },
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           const tickers = input['tickers'] as string[] | undefined;
           const topics = input['topics'] as string[] | undefined;
           return client.getNewsSentiment({
@@ -809,7 +809,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getInsiderTransactions(input['symbol'] as string);
         }
       ),
@@ -822,7 +822,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           properties: {},
         },
         async () => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.getTopGainersLosers();
         }
       ),
@@ -844,7 +844,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           const outputSize = input['outputSize'] as 'compact' | 'full' | undefined;
           const adjusted = input['adjusted'] as boolean | undefined;
           return client.getDailyTimeSeries(input['symbol'] as string, {
@@ -870,7 +870,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['symbol'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           const symbol = input['symbol'] as string;
           const indicators = (input['indicators'] as string[]) ?? ['RSI', 'MACD'];
           const results: Record<string, unknown> = {};
@@ -914,7 +914,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['indicator'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           const indicator = input['indicator'] as string;
 
           switch (indicator) {
@@ -947,7 +947,7 @@ Respond with exactly one word: "supporting", "neutral", or "contradicting"`;
           required: ['keywords'],
         },
         async (input) => {
-          const client = getAlphaVantageMCPClient();
+          const client = getAlphaVantageClient();
           return client.searchSymbol(input['keywords'] as string);
         }
       ),

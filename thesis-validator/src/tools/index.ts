@@ -71,13 +71,13 @@ export {
   type RealtimeInsight,
 } from './transcript-processor.js';
 
-// AlphaVantage MCP Financial Data
+// AlphaVantage REST API Financial Data
 export {
-  AlphaVantageMCPClient,
-  getAlphaVantageMCPClient,
-  setAlphaVantageMCPClient,
+  AlphaVantageClient,
+  getAlphaVantageClient,
+  setAlphaVantageClient,
   gatherFinancialEvidence,
-  type AlphaVantageMCPConfig,
+  type AlphaVantageConfig,
   type StockQuote,
   type TimeSeriesDataPoint,
   type CompanyOverview,
@@ -91,4 +91,4 @@ export {
   type EarningsData,
   type MarketMovers,
   type FinancialDataResult,
-} from './alphavantage-mcp.js';
+} from './alphavantage-rest.js';

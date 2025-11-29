@@ -1,8 +1,8 @@
 /**
- * AlphaVantage MCP Client - Financial data via Model Context Protocol
+ * AlphaVantage REST API Client - Financial data via direct REST API calls
  *
  * Provides access to real-time and historical financial data through
- * the AlphaVantage MCP server for due diligence research.
+ * the AlphaVantage REST API for due diligence research.
  *
  * Available data categories:
  * - Core Stock APIs (quotes, time series)
@@ -12,39 +12,15 @@
  * - Technical Indicators (SMA, RSI, MACD, etc.)
  */
 
-// AlphaVantage MCP Client - Types and Implementation
+// AlphaVantage REST Client - Types and Implementation
 
 /**
- * AlphaVantage MCP configuration
+ * AlphaVantage REST API configuration
  */
-export interface AlphaVantageMCPConfig {
+export interface AlphaVantageConfig {
   apiKey: string;
   baseUrl?: string;
   timeout?: number;
-}
-
-/**
- * MCP JSON-RPC request format
- */
-interface MCPRequest {
-  jsonrpc: '2.0';
-  id: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-/**
- * MCP JSON-RPC response format
- */
-interface MCPResponse<T = unknown> {
-  jsonrpc: '2.0';
-  id: string | number;
-  result?: T;
-  error?: {
-    code: number;
-    message: string;
-    data?: unknown;
-  };
 }
 
 /**
@@ -345,74 +321,79 @@ export interface MarketMovers {
 }
 
 /**
- * AlphaVantage MCP Client
+ * AlphaVantage REST API Client
  */
-export class AlphaVantageMCPClient {
-  private config: Required<AlphaVantageMCPConfig>;
-  private requestId = 0;
+export class AlphaVantageClient {
+  private config: Required<AlphaVantageConfig>;
 
-  constructor(config: AlphaVantageMCPConfig) {
+  constructor(config: AlphaVantageConfig) {
     this.config = {
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl ?? 'https://mcp.alphavantage.co',
+      baseUrl: config.baseUrl ?? 'https://www.alphavantage.co',
       timeout: config.timeout ?? 30000,
     };
 
     if (!this.config.apiKey) {
-      console.warn('[AlphaVantageMCP] No API key configured');
+      console.warn('[AlphaVantage] No API key configured');
     }
   }
 
   /**
-   * Get the MCP endpoint URL
+   * Build API URL with query parameters
    */
-  private getMCPUrl(): string {
-    return `${this.config.baseUrl}/mcp?apikey=${this.config.apiKey}`;
+  private buildUrl(params: Record<string, string | number | undefined>): string {
+    const url = new URL('/query', this.config.baseUrl);
+    url.searchParams.set('apikey', this.config.apiKey);
+
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+
+    return url.toString();
   }
 
   /**
-   * Make an MCP tool call
+   * Make an API request
    */
-  private async callTool<T>(toolName: string, args: Record<string, unknown> = {}): Promise<T> {
-    const request: MCPRequest = {
-      jsonrpc: '2.0',
-      id: ++this.requestId,
-      method: 'tools/call',
-      params: {
-        name: toolName,
-        arguments: args,
-      },
-    };
+  private async apiCall<T>(params: Record<string, string | number | undefined>): Promise<T> {
+    const url = this.buildUrl(params);
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-      const response = await fetch(this.getMCPUrl(), {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(request),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`AlphaVantage MCP error: ${response.status} ${response.statusText}`);
+        throw new Error(`AlphaVantage API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as MCPResponse<T>;
+      const data = await response.json() as T;
 
-      if (data.error) {
-        throw new Error(`MCP error: ${data.error.message} (code: ${data.error.code})`);
+      // Check for API error messages
+      if (data && typeof data === 'object' && 'Error Message' in data) {
+        throw new Error(`AlphaVantage API error: ${(data as Record<string, unknown>)['Error Message']}`);
       }
 
-      return data.result as T;
+      // Check for rate limit messages
+      if (data && typeof data === 'object' && 'Note' in data) {
+        console.warn(`[AlphaVantage] Rate limit warning: ${(data as Record<string, unknown>)['Note']}`);
+      }
+
+      return data;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('AlphaVantage MCP request timed out');
+        throw new Error('AlphaVantage API request timed out');
       }
       throw error;
     }
@@ -433,9 +414,12 @@ export class AlphaVantageMCPClient {
    * Get real-time stock quote
    */
   async getQuote(symbol: string): Promise<StockQuote> {
-    const result = await this.callTool<Record<string, unknown>>('get_quote', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'GLOBAL_QUOTE',
+      symbol,
+    });
 
-    const quote = result['Global Quote'] as Record<string, string> ?? result;
+    const quote = result['Global Quote'] as Record<string, string> ?? {};
     return {
       symbol: quote['01. symbol'] ?? symbol,
       open: this.parseNumber(quote['02. open']),
@@ -457,8 +441,9 @@ export class AlphaVantageMCPClient {
     symbol: string,
     options?: { outputSize?: 'compact' | 'full'; adjusted?: boolean }
   ): Promise<TimeSeriesDataPoint[]> {
-    const toolName = options?.adjusted ? 'get_time_series_daily_adjusted' : 'get_time_series_daily';
-    const result = await this.callTool<Record<string, unknown>>(toolName, {
+    const functionName = options?.adjusted ? 'TIME_SERIES_DAILY_ADJUSTED' : 'TIME_SERIES_DAILY';
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: functionName,
       symbol,
       outputsize: options?.outputSize ?? 'compact',
     });
@@ -488,8 +473,11 @@ export class AlphaVantageMCPClient {
     symbol: string,
     options?: { adjusted?: boolean }
   ): Promise<TimeSeriesDataPoint[]> {
-    const toolName = options?.adjusted ? 'get_time_series_weekly_adjusted' : 'get_time_series_weekly';
-    const result = await this.callTool<Record<string, unknown>>(toolName, { symbol });
+    const functionName = options?.adjusted ? 'TIME_SERIES_WEEKLY_ADJUSTED' : 'TIME_SERIES_WEEKLY';
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: functionName,
+      symbol,
+    });
 
     const timeSeriesKey = options?.adjusted
       ? 'Weekly Adjusted Time Series'
@@ -522,7 +510,10 @@ export class AlphaVantageMCPClient {
     currency: string;
     matchScore: string;
   }>> {
-    const result = await this.callTool<Record<string, unknown>>('search_symbols', { keywords });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'SYMBOL_SEARCH',
+      keywords,
+    });
     const matches = result['bestMatches'] as Array<Record<string, string>> ?? [];
 
     return matches.map((match) => ({
@@ -544,7 +535,10 @@ export class AlphaVantageMCPClient {
    * Get company overview with key fundamentals
    */
   async getCompanyOverview(symbol: string): Promise<CompanyOverview> {
-    const result = await this.callTool<Record<string, string>>('get_company_overview', { symbol });
+    const result = await this.apiCall<Record<string, string>>({
+      function: 'OVERVIEW',
+      symbol,
+    });
 
     return {
       symbol: result['Symbol'] ?? symbol,
@@ -597,7 +591,10 @@ export class AlphaVantageMCPClient {
     annual: IncomeStatement[];
     quarterly: IncomeStatement[];
   }> {
-    const result = await this.callTool<Record<string, unknown>>('get_income_statement', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'INCOME_STATEMENT',
+      symbol,
+    });
 
     const parseStatement = (data: Record<string, string>): IncomeStatement => ({
       fiscalDateEnding: data['fiscalDateEnding'] ?? '',
@@ -641,7 +638,10 @@ export class AlphaVantageMCPClient {
     annual: BalanceSheet[];
     quarterly: BalanceSheet[];
   }> {
-    const result = await this.callTool<Record<string, unknown>>('get_balance_sheet', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'BALANCE_SHEET',
+      symbol,
+    });
 
     const parseSheet = (data: Record<string, string>): BalanceSheet => ({
       fiscalDateEnding: data['fiscalDateEnding'] ?? '',
@@ -697,7 +697,10 @@ export class AlphaVantageMCPClient {
     annual: CashFlowStatement[];
     quarterly: CashFlowStatement[];
   }> {
-    const result = await this.callTool<Record<string, unknown>>('get_cash_flow', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'CASH_FLOW',
+      symbol,
+    });
 
     const parseStatement = (data: Record<string, string>): CashFlowStatement => ({
       fiscalDateEnding: data['fiscalDateEnding'] ?? '',
@@ -741,7 +744,10 @@ export class AlphaVantageMCPClient {
    * Get earnings data
    */
   async getEarnings(symbol: string): Promise<EarningsData> {
-    const result = await this.callTool<Record<string, unknown>>('get_earnings', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'EARNINGS',
+      symbol,
+    });
 
     return {
       symbol,
@@ -773,15 +779,28 @@ export class AlphaVantageMCPClient {
     sort?: 'LATEST' | 'EARLIEST' | 'RELEVANCE';
     limit?: number;
   }): Promise<NewsArticle[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_news_sentiment', {
-      tickers: options?.tickers?.join(','),
-      topics: options?.topics?.join(','),
-      time_from: options?.timeFrom,
-      time_to: options?.timeTo,
-      sort: options?.sort,
+    const params: Record<string, string | number | undefined> = {
+      function: 'NEWS_SENTIMENT',
       limit: options?.limit ?? 50,
-    });
+    };
 
+    if (options?.tickers && options.tickers.length > 0) {
+      params['tickers'] = options.tickers.join(',');
+    }
+    if (options?.topics && options.topics.length > 0) {
+      params['topics'] = options.topics.join(',');
+    }
+    if (options?.timeFrom) {
+      params['time_from'] = options.timeFrom;
+    }
+    if (options?.timeTo) {
+      params['time_to'] = options.timeTo;
+    }
+    if (options?.sort) {
+      params['sort'] = options.sort;
+    }
+
+    const result = await this.apiCall<Record<string, unknown>>(params);
     const feed = (result['feed'] ?? []) as Record<string, unknown>[];
 
     return feed.map((article) => ({
@@ -813,7 +832,9 @@ export class AlphaVantageMCPClient {
    * Get top gainers, losers, and most actively traded
    */
   async getTopGainersLosers(): Promise<MarketMovers> {
-    const result = await this.callTool<Record<string, unknown>>('get_top_gainers_losers', {});
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'TOP_GAINERS_LOSERS',
+    });
 
     const parseMovers = (data: Record<string, string>[]) =>
       data.map((item) => ({
@@ -835,7 +856,10 @@ export class AlphaVantageMCPClient {
    * Get insider transactions
    */
   async getInsiderTransactions(symbol: string): Promise<InsiderTransaction[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_insider_transactions', { symbol });
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'INSIDER_TRANSACTIONS',
+      symbol,
+    });
 
     const data = (result['data'] ?? []) as Record<string, string>[];
 
@@ -857,7 +881,8 @@ export class AlphaVantageMCPClient {
    * Get real GDP data
    */
   async getRealGDP(interval?: 'annual' | 'quarterly'): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_real_gdp', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'REAL_GDP',
       interval: interval ?? 'annual',
     });
 
@@ -871,7 +896,8 @@ export class AlphaVantageMCPClient {
    * Get CPI (Consumer Price Index) data
    */
   async getCPI(interval?: 'monthly' | 'semiannual'): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_cpi', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'CPI',
       interval: interval ?? 'monthly',
     });
 
@@ -885,7 +911,9 @@ export class AlphaVantageMCPClient {
    * Get inflation rate data
    */
   async getInflation(): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_inflation', {});
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'INFLATION',
+    });
 
     return ((result['data'] ?? []) as Record<string, string>[]).map((d) => ({
       date: d['date'] ?? '',
@@ -897,7 +925,8 @@ export class AlphaVantageMCPClient {
    * Get Federal Funds Rate
    */
   async getFederalFundsRate(interval?: 'daily' | 'weekly' | 'monthly'): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_federal_funds_rate', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'FEDERAL_FUNDS_RATE',
       interval: interval ?? 'monthly',
     });
 
@@ -914,7 +943,8 @@ export class AlphaVantageMCPClient {
     interval?: 'daily' | 'weekly' | 'monthly',
     maturity?: '3month' | '2year' | '5year' | '7year' | '10year' | '30year'
   ): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_treasury_yield', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'TREASURY_YIELD',
       interval: interval ?? 'monthly',
       maturity: maturity ?? '10year',
     });
@@ -929,7 +959,9 @@ export class AlphaVantageMCPClient {
    * Get unemployment rate
    */
   async getUnemployment(): Promise<EconomicDataPoint[]> {
-    const result = await this.callTool<Record<string, unknown>>('get_unemployment', {});
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'UNEMPLOYMENT',
+    });
 
     return ((result['data'] ?? []) as Record<string, string>[]).map((d) => ({
       date: d['date'] ?? '',
@@ -950,7 +982,8 @@ export class AlphaVantageMCPClient {
       seriesType?: 'close' | 'open' | 'high' | 'low';
     }
   ): Promise<TechnicalIndicatorResult> {
-    const result = await this.callTool<Record<string, unknown>>('get_sma', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'SMA',
       symbol,
       interval: options?.interval ?? 'daily',
       time_period: options?.timePeriod ?? 20,
@@ -981,7 +1014,8 @@ export class AlphaVantageMCPClient {
       seriesType?: 'close' | 'open' | 'high' | 'low';
     }
   ): Promise<TechnicalIndicatorResult> {
-    const result = await this.callTool<Record<string, unknown>>('get_ema', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'EMA',
       symbol,
       interval: options?.interval ?? 'daily',
       time_period: options?.timePeriod ?? 20,
@@ -1012,7 +1046,8 @@ export class AlphaVantageMCPClient {
       seriesType?: 'close' | 'open' | 'high' | 'low';
     }
   ): Promise<TechnicalIndicatorResult> {
-    const result = await this.callTool<Record<string, unknown>>('get_rsi', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'RSI',
       symbol,
       interval: options?.interval ?? 'daily',
       time_period: options?.timePeriod ?? 14,
@@ -1045,7 +1080,8 @@ export class AlphaVantageMCPClient {
       signalPeriod?: number;
     }
   ): Promise<TechnicalIndicatorResult> {
-    const result = await this.callTool<Record<string, unknown>>('get_macd', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'MACD',
       symbol,
       interval: options?.interval ?? 'daily',
       series_type: options?.seriesType ?? 'close',
@@ -1082,7 +1118,8 @@ export class AlphaVantageMCPClient {
       nbdevdn?: number;
     }
   ): Promise<TechnicalIndicatorResult> {
-    const result = await this.callTool<Record<string, unknown>>('get_bbands', {
+    const result = await this.apiCall<Record<string, unknown>>({
+      function: 'BBANDS',
       symbol,
       interval: options?.interval ?? 'daily',
       time_period: options?.timePeriod ?? 20,
@@ -1108,14 +1145,14 @@ export class AlphaVantageMCPClient {
 }
 
 // Singleton instance
-let _alphavantageClient: AlphaVantageMCPClient | null = null;
+let _alphavantageClient: AlphaVantageClient | null = null;
 
 /**
- * Get the singleton AlphaVantage MCP Client
+ * Get the singleton AlphaVantage Client
  */
-export function getAlphaVantageMCPClient(): AlphaVantageMCPClient {
+export function getAlphaVantageClient(): AlphaVantageClient {
   if (!_alphavantageClient) {
-    _alphavantageClient = new AlphaVantageMCPClient({
+    _alphavantageClient = new AlphaVantageClient({
       apiKey: process.env['ALPHAVANTAGE_API_KEY'] ?? '',
     });
   }
@@ -1123,9 +1160,9 @@ export function getAlphaVantageMCPClient(): AlphaVantageMCPClient {
 }
 
 /**
- * Set a custom AlphaVantage MCP Client (for testing)
+ * Set a custom AlphaVantage Client (for testing)
  */
-export function setAlphaVantageMCPClient(client: AlphaVantageMCPClient): void {
+export function setAlphaVantageClient(client: AlphaVantageClient): void {
   _alphavantageClient = client;
 }
 
@@ -1154,7 +1191,7 @@ export async function gatherFinancialEvidence(
     includeTechnicals?: boolean;
   }
 ): Promise<FinancialDataResult[]> {
-  const client = getAlphaVantageMCPClient();
+  const client = getAlphaVantageClient();
   const results: FinancialDataResult[] = [];
   const now = Date.now();
 

@@ -32,6 +32,6 @@
     },
     "baseUrl": "."
   },
-  "include": ["src/**/*", "config/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": ["src/**/*", "config/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "scripts"]
 }

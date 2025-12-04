@@ -1,52 +1,11 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Engagement } from '../../types/api.js';
+import { useEngagements } from '../../hooks/useAPI.js';
 
-// Mock data for testing
-const mockEngagements: Engagement[] = [
-  {
-    id: 'eng-1',
-    name: 'TechCo Acquisition',
-    target: {
-      name: 'TechCo',
-      sector: 'Software',
-      location: 'San Francisco',
-    },
-    deal_type: 'buyout',
-    status: 'research_active',
-    created_at: Date.now() - 86400000 * 2, // 2 days ago
-    updated_at: Date.now(),
-    created_by: 'user-1',
-  },
-  {
-    id: 'eng-2',
-    name: 'MediHealth Growth Investment',
-    target: {
-      name: 'MediHealth',
-      sector: 'Healthcare',
-      location: 'Boston',
-    },
-    deal_type: 'growth',
-    status: 'pending',
-    created_at: Date.now() - 86400000 * 5, // 5 days ago
-    updated_at: Date.now() - 86400000,
-    created_by: 'user-2',
-  },
-  {
-    id: 'eng-3',
-    name: 'FinServe Platform',
-    target: {
-      name: 'FinServe',
-      sector: 'Financial Services',
-      location: 'New York',
-    },
-    deal_type: 'venture',
-    status: 'research_complete',
-    created_at: Date.now() - 86400000 * 10, // 10 days ago
-    updated_at: Date.now() - 86400000 * 3,
-    created_by: 'user-1',
-  },
-];
+interface EngagementsTabProps {
+  serverUrl: string;
+}
 
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
@@ -89,7 +48,32 @@ function formatStatus(status: Engagement['status']): string {
   }
 }
 
-export function EngagementsTab(): React.ReactElement {
+export function EngagementsTab({ serverUrl }: EngagementsTabProps): React.ReactElement {
+  const { engagements, loading, error } = useEngagements(serverUrl);
+
+  // Loading state
+  if (loading) {
+    return (
+      <Box flexDirection="column" paddingY={1}>
+        <Text color="yellow">Loading engagements...</Text>
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box flexDirection="column" paddingY={1}>
+        <Text color="red">Error: {error}</Text>
+        <Box marginTop={1}>
+          <Text color="gray">
+            Make sure the backend server is running at {serverUrl}
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" paddingY={1}>
       {/* Table Header */}
@@ -116,7 +100,7 @@ export function EngagementsTab(): React.ReactElement {
       </Box>
 
       {/* Table Rows */}
-      {mockEngagements.map((eng) => (
+      {engagements.map((eng) => (
         <Box key={eng.id} marginBottom={1}>
           <Box width={30}>
             <Text>{eng.name}</Text>
@@ -134,7 +118,7 @@ export function EngagementsTab(): React.ReactElement {
       ))}
 
       {/* Empty State */}
-      {mockEngagements.length === 0 && (
+      {engagements.length === 0 && (
         <Box marginY={2}>
           <Text color="gray">No engagements found. Press [N] to create a new one.</Text>
         </Box>

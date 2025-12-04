@@ -3,6 +3,7 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { Header } from './components/Header.js';
 import { Footer } from './components/Footer.js';
 import { EngagementsTab } from './components/tabs/EngagementsTab.js';
+import { useHealthCheck } from './hooks/useAPI.js';
 
 interface AppProps {
   serverUrl: string;
@@ -10,7 +11,7 @@ interface AppProps {
 
 export function App({ serverUrl }: AppProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState(0);
-  const [isOnline] = useState(true); // Will be dynamic later
+  const { isOnline } = useHealthCheck(serverUrl);
   const { exit } = useApp();
 
   // Handle keyboard input
@@ -72,7 +73,7 @@ export function App({ serverUrl }: AppProps): React.ReactElement {
 
       {/* Content Area */}
       <Box flexGrow={1} paddingX={1} paddingY={1}>
-        {activeTab === 0 && <EngagementsTab />}
+        {activeTab === 0 && <EngagementsTab serverUrl={serverUrl} />}
         {activeTab === 1 && <Text>Research Tab - Press 1-5 to switch tabs</Text>}
         {activeTab === 2 && <Text>Evidence Tab - Press 1-5 to switch tabs</Text>}
         {activeTab === 3 && <Text>Hypothesis Tab - Press 1-5 to switch tabs</Text>}

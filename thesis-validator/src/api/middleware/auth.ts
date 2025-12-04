@@ -38,6 +38,19 @@ export async function registerAuth(fastify: FastifyInstance): Promise<void> {
 
   // Add authenticate decorator
   fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Skip auth in development mode if DISABLE_AUTH is set
+    if (process.env['NODE_ENV'] !== 'production' && process.env['DISABLE_AUTH'] === 'true') {
+      // Set a default dev user when auth is disabled
+      (request as AuthenticatedRequest).user = {
+        id: 'dev-user',
+        email: 'dev@localhost',
+        name: 'Development User',
+        role: 'admin',
+        permissions: ['*']
+      };
+      return;
+    }
+
     try {
       await request.jwtVerify();
     } catch (err) {
@@ -53,6 +66,19 @@ export async function authHook(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
+  // Skip auth in development mode if DISABLE_AUTH is set
+  if (process.env['NODE_ENV'] !== 'production' && process.env['DISABLE_AUTH'] === 'true') {
+    // Set a default dev user when auth is disabled
+    (request as AuthenticatedRequest).user = {
+      id: 'dev-user',
+      email: 'dev@localhost',
+      name: 'Development User',
+      role: 'admin',
+      permissions: ['*']
+    };
+    return;
+  }
+
   try {
     await request.jwtVerify();
   } catch (err) {

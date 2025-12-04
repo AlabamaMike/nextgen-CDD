@@ -6,9 +6,6 @@
 
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
-import multipart from '@fastify/multipart';
 import { registerAuth } from './middleware/index.js';
 import {
   registerEngagementRoutes,

@@ -222,7 +222,7 @@ export class ResearchWorker {
     const connection = createRedisConnection();
 
     this.worker = new Worker<ResearchJobData>(
-      'research:jobs',
+      'research-jobs',
       processResearchJob,
       {
         connection,

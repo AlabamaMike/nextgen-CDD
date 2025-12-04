@@ -48,7 +48,7 @@ export class ResearchJobQueue {
   constructor() {
     const connection = createRedisConnection();
 
-    this.queue = new Queue<ResearchJobData>('research:jobs', {
+    this.queue = new Queue<ResearchJobData>('research-jobs', {
       connection,
       defaultJobOptions: {
         attempts: 3,
@@ -67,7 +67,7 @@ export class ResearchJobQueue {
       },
     });
 
-    this.events = new QueueEvents('research:jobs', {
+    this.events = new QueueEvents('research-jobs', {
       connection: createRedisConnection(),
     });
   }

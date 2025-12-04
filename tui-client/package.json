@@ -1,0 +1,34 @@
+{
+  "name": "thesis-validator-tui",
+  "version": "1.0.0",
+  "description": "Terminal UI client for Thesis Validator",
+  "type": "module",
+  "bin": {
+    "thesis-tui": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.tsx",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["tui", "cli", "thesis-validator"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "chalk": "^5.6.2",
+    "commander": "^11.1.0",
+    "ink": "^4.4.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "@types/react": "^18.3.27",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  }
+}

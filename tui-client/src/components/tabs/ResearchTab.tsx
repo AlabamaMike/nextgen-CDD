@@ -53,7 +53,7 @@ export function ResearchTab({ serverUrl, authToken }: ResearchTabProps): React.R
       const websocket = new WebSocket(wsUrl);
 
       websocket.on('open', () => {
-        console.log('[ResearchTab] WebSocket connected');
+        // WebSocket connected
       });
 
       websocket.on('message', (data: Buffer) => {
@@ -81,17 +81,17 @@ export function ResearchTab({ serverUrl, authToken }: ResearchTabProps): React.R
             }
           }
         } catch (err) {
-          console.error('[ResearchTab] Failed to parse WebSocket message:', err);
+          // Failed to parse WebSocket message - ignore
         }
       });
 
       websocket.on('error', (err: Error) => {
-        console.error('[ResearchTab] WebSocket error:', err);
+        // WebSocket error occurred
         setError('WebSocket connection error');
       });
 
       websocket.on('close', () => {
-        console.log('[ResearchTab] WebSocket closed');
+        // WebSocket closed
         setWs(null);
       });
 

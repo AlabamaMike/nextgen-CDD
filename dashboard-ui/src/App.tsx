@@ -1,8 +1,19 @@
 import { useState, useEffect } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThreePanelLayout } from './components/layout/ThreePanelLayout';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { MainPanel } from './components/main/MainPanel';
 import { ContextPanel } from './components/context/ContextPanel';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -33,28 +44,26 @@ function App() {
     setCurrentView(view);
   };
 
-  const handleSelectEvidence = (evidence: unknown) => {
-    console.log('Selected evidence:', evidence);
-    // Could switch to evidence tab in context panel or open a modal
-  };
-
   return (
-    <ThreePanelLayout
-      leftPanel={
-        <Sidebar
-          onNavigate={handleNavigate}
-          currentView={currentView}
-        />
-      }
-      mainPanel={
-        <MainPanel
-          onSelectEvidence={handleSelectEvidence}
-        />
-      }
-      rightPanel={
-        <ContextPanel />
-      }
-    />
+    <QueryClientProvider client={queryClient}>
+      <ThreePanelLayout
+        leftPanel={
+          <Sidebar
+            onNavigate={handleNavigate}
+            currentView={currentView}
+          />
+        }
+        mainPanel={
+          <MainPanel
+            currentView={currentView}
+            onViewChange={handleNavigate}
+          />
+        }
+        rightPanel={
+          <ContextPanel />
+        }
+      />
+    </QueryClientProvider>
   );
 }
 

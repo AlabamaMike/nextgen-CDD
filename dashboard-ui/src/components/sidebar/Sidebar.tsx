@@ -12,28 +12,16 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
-
-interface Engagement {
-  id: string;
-  name: string;
-  status: 'active' | 'in_review' | 'completed' | 'draft';
-  company: string;
-}
+import { useEngagements } from '../../hooks/useEngagements';
+import type { Engagement } from '../../types/api';
 
 interface SidebarProps {
   collapsed?: boolean;
   onNavigate?: (view: string) => void;
   currentView?: string;
 }
-
-// Mock data for engagements
-const mockEngagements: Engagement[] = [
-  { id: '1', name: 'TechCorp Acquisition', status: 'active', company: 'TechCorp Inc.' },
-  { id: '2', name: 'HealthPlus Platform', status: 'in_review', company: 'HealthPlus Ltd.' },
-  { id: '3', name: 'RetailMax Add-on', status: 'completed', company: 'RetailMax' },
-  { id: '4', name: 'CloudScale Growth', status: 'draft', company: 'CloudScale' },
-];
 
 const statusIcons = {
   active: <Clock className="h-3 w-3 text-primary-500" />,
@@ -44,6 +32,7 @@ const statusIcons = {
 
 export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboard' }: SidebarProps) {
   const [engagementsExpanded, setEngagementsExpanded] = useState(true);
+  const { data, isLoading, error } = useEngagements();
 
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard' },
@@ -56,6 +45,8 @@ export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboar
     { id: 'settings', icon: Settings, label: 'Settings' },
     { id: 'help', icon: HelpCircle, label: 'Help & Support' },
   ];
+
+  const engagements = data?.engagements || [];
 
   return (
     <div className="flex h-full flex-col">
@@ -138,8 +129,22 @@ export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboar
                 <span>New Engagement</span>
               </button>
 
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-surface-400" />
+                </div>
+              )}
+
+              {/* Error State */}
+              {error && (
+                <div className="px-3 py-2 text-xs text-red-500">
+                  Failed to load engagements
+                </div>
+              )}
+
               {/* Engagement List */}
-              {mockEngagements.map((engagement) => (
+              {!isLoading && !error && engagements.map((engagement) => (
                 <button
                   key={engagement.id}
                   onClick={() => onNavigate?.(`engagement-${engagement.id}`)}
@@ -150,9 +155,16 @@ export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboar
                   `}
                 >
                   {statusIcons[engagement.status]}
-                  <span className="truncate">{engagement.name}</span>
+                  <span className="truncate">{engagement.target_company}</span>
                 </button>
               ))}
+
+              {/* Empty State */}
+              {!isLoading && !error && engagements.length === 0 && (
+                <div className="px-3 py-2 text-xs text-surface-500">
+                  No engagements yet
+                </div>
+              )}
             </div>
           )}
         </div>

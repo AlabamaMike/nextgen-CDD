@@ -72,8 +72,7 @@ export async function registerEngagementRoutes(fastify: FastifyInstance): Promis
       initializeEngagementAccess(engagement.id, user.id);
 
       // Initialize deal memory for this engagement
-      const dealMemory = createDealMemory();
-      await dealMemory.initialize(engagement.id);
+      await createDealMemory(engagement.id);
 
       reply.status(201).send({
         engagement,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 
 /**
  * Engagement status lifecycle
@@ -238,7 +239,7 @@ export function createEngagement(
   request: CreateEngagementRequest,
   created_by: string
 ): Engagement {
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   const now = Date.now();
 
   return {

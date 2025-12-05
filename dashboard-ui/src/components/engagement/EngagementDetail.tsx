@@ -8,15 +8,17 @@ import { ThesisSubmitForm } from '../research/ThesisSubmitForm';
 import { ResearchProgress } from '../research/ResearchProgress';
 import { ResearchResults } from '../research/ResearchResults';
 import { HypothesisTreeViz, HypothesisDetailPanel } from '../hypothesis';
+import { EvidenceExplorer, EvidenceDetailPanel, ResearchQualityCharts } from '../evidence';
 import { useHypothesisTree, useUpdateHypothesis } from '../../hooks/useHypotheses';
-import type { HypothesisNode } from '../../types/api';
+import { useEvidenceStats, useUpdateEvidence } from '../../hooks/useEvidence';
+import type { HypothesisNode, Evidence } from '../../types/api';
 
 interface EngagementDetailProps {
   engagementId: string;
 }
 
 type WorkflowStep = 'submit' | 'progress' | 'results';
-type TabType = 'research' | 'hypotheses';
+type TabType = 'research' | 'hypotheses' | 'evidence';
 
 export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   const { data: engagement, isLoading, error } = useEngagement(engagementId);
@@ -24,10 +26,15 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('submit');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [selectedHypothesis, setSelectedHypothesis] = useState<HypothesisNode | null>(null);
+  const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
 
   // Hypothesis tree hooks
   const { data: hypothesisTree, isLoading: isLoadingTree } = useHypothesisTree(engagementId);
   const updateHypothesis = useUpdateHypothesis(engagementId);
+
+  // Evidence hooks
+  const { data: evidenceStats, isLoading: isLoadingStats } = useEvidenceStats(engagementId);
+  const updateEvidence = useUpdateEvidence(engagementId);
 
   const handleResearchStart = (jobId: string) => {
     setCurrentJobId(jobId);
@@ -162,6 +169,19 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
             `}
           >
             Hypotheses
+          </button>
+          <button
+            onClick={() => setActiveTab('evidence')}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${
+                activeTab === 'evidence'
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+              }
+            `}
+          >
+            Evidence
           </button>
         </div>
       </div>
@@ -309,6 +329,61 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Evidence Tab */}
+      {activeTab === 'evidence' && (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left side: Evidence Explorer */}
+          <div className="w-1/2 border-r border-surface-200 dark:border-surface-700">
+            <EvidenceExplorer
+              engagementId={engagementId}
+              onSelectEvidence={setSelectedEvidence}
+              selectedEvidenceId={selectedEvidence?.id}
+            />
+          </div>
+
+          {/* Right side: Detail Panel or Charts */}
+          <div className="w-1/2 flex flex-col">
+            {selectedEvidence ? (
+              <EvidenceDetailPanel
+                evidence={selectedEvidence}
+                onClose={() => setSelectedEvidence(null)}
+                onUpdateSentiment={(sentiment) => {
+                  updateEvidence.mutate({
+                    evidenceId: selectedEvidence.id,
+                    data: { sentiment },
+                  });
+                }}
+                onUpdateCredibility={(credibility) => {
+                  updateEvidence.mutate({
+                    evidenceId: selectedEvidence.id,
+                    data: { credibility },
+                  });
+                }}
+              />
+            ) : isLoadingStats ? (
+              <div className="flex items-center justify-center flex-1">
+                <div className="text-surface-500 dark:text-surface-400">Loading statistics...</div>
+              </div>
+            ) : evidenceStats?.stats ? (
+              <div className="p-6 overflow-y-auto">
+                <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-4">
+                  Research Quality Overview
+                </h2>
+                <ResearchQualityCharts stats={evidenceStats.stats} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center flex-1">
+                <div className="text-center max-w-md">
+                  <p className="text-surface-600 dark:text-surface-400">
+                    No evidence collected yet. Run research to gather evidence.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

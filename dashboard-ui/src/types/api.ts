@@ -199,3 +199,93 @@ export interface UpdateHypothesisRequest {
   importance?: 'critical' | 'high' | 'medium' | 'low';
   testability?: 'easy' | 'moderate' | 'difficult';
 }
+
+// Evidence types
+export type EvidenceSourceType = 'web' | 'document' | 'expert' | 'data' | 'filing' | 'financial';
+export type EvidenceSentiment = 'supporting' | 'neutral' | 'contradicting';
+
+export interface Evidence {
+  id: string;
+  engagementId: string;
+  content: string;
+  sourceType: EvidenceSourceType;
+  sourceUrl: string | null;
+  sourceTitle: string | null;
+  sourceAuthor: string | null;
+  sourcePublicationDate: string | null;
+  credibility: number | null;
+  sentiment: EvidenceSentiment;
+  documentId: string | null;
+  provenance: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  retrievedAt: string | null;
+  createdAt: string;
+  linkedHypotheses?: Array<{ hypothesisId: string; relevanceScore: number }>;
+}
+
+export interface EvidenceFilters {
+  sourceType?: EvidenceSourceType;
+  sentiment?: EvidenceSentiment;
+  minCredibility?: number;
+  hypothesisId?: string;
+  documentId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface EvidenceStats {
+  totalCount: number;
+  bySourceType: Record<string, number>;
+  bySentiment: Record<string, number>;
+  averageCredibility: number;
+  hypothesisCoverage: number;
+}
+
+export interface CreateEvidenceRequest {
+  content: string;
+  sourceType: EvidenceSourceType;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceAuthor?: string;
+  sourcePublicationDate?: string;
+  credibility?: number;
+  sentiment?: EvidenceSentiment;
+  hypothesisIds?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateEvidenceRequest {
+  content?: string;
+  credibility?: number;
+  sentiment?: EvidenceSentiment;
+  metadata?: Record<string, unknown>;
+}
+
+// Document types
+export type DocumentFormat = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'html' | 'image' | 'unknown';
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface Document {
+  id: string;
+  engagementId: string;
+  filename: string;
+  originalFilename: string;
+  format: DocumentFormat;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  storagePath: string | null;
+  status: DocumentStatus;
+  chunkCount: number;
+  errorMessage: string | null;
+  metadata: Record<string, unknown>;
+  uploadedBy: string | null;
+  uploadedAt: string;
+  processedAt: string | null;
+}
+
+export interface DocumentFilters {
+  status?: DocumentStatus;
+  format?: DocumentFormat;
+  limit?: number;
+  offset?: number;
+}

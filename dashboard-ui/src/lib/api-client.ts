@@ -170,6 +170,116 @@ export class ThesisValidatorClient {
   async deleteHypothesis(engagementId: string, hypothesisId: string): Promise<void> {
     await this.client.delete(`/api/v1/engagements/${engagementId}/hypotheses/${hypothesisId}`);
   }
+
+  // Evidence
+  async getEvidence(engagementId: string, filters?: any): Promise<{ evidence: any[]; total: number }> {
+    const params: Record<string, string | number> = {};
+    if (filters?.sourceType) params.source_type = filters.sourceType;
+    if (filters?.sentiment) params.sentiment = filters.sentiment;
+    if (filters?.minCredibility !== undefined) params.min_credibility = filters.minCredibility;
+    if (filters?.hypothesisId) params.hypothesis_id = filters.hypothesisId;
+    if (filters?.documentId) params.document_id = filters.documentId;
+    if (filters?.limit) params.limit = filters.limit;
+    if (filters?.offset) params.offset = filters.offset;
+
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/evidence`,
+      { params }
+    );
+    return response.data;
+  }
+
+  async getEvidenceStats(engagementId: string): Promise<{ stats: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/evidence/stats`
+    );
+    return response.data;
+  }
+
+  async getEvidenceById(engagementId: string, evidenceId: string): Promise<{ evidence: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}`
+    );
+    return response.data;
+  }
+
+  async createEvidence(engagementId: string, data: any): Promise<{ evidence: any }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/evidence`,
+      data
+    );
+    return response.data;
+  }
+
+  async updateEvidence(engagementId: string, evidenceId: string, data: any): Promise<{ evidence: any }> {
+    const response = await this.client.patch(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteEvidence(engagementId: string, evidenceId: string): Promise<void> {
+    await this.client.delete(`/api/v1/engagements/${engagementId}/evidence/${evidenceId}`);
+  }
+
+  async linkEvidenceToHypothesis(
+    engagementId: string,
+    evidenceId: string,
+    hypothesisId: string,
+    relevanceScore?: number
+  ): Promise<void> {
+    await this.client.post(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}/hypotheses`,
+      { hypothesisId, relevanceScore }
+    );
+  }
+
+  async unlinkEvidenceFromHypothesis(
+    engagementId: string,
+    evidenceId: string,
+    hypothesisId: string
+  ): Promise<void> {
+    await this.client.delete(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}/hypotheses/${hypothesisId}`
+    );
+  }
+
+  // Documents
+  async getDocuments(engagementId: string, filters?: any): Promise<{ documents: any[]; total: number }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/documents`,
+      { params: filters }
+    );
+    return response.data;
+  }
+
+  async getDocument(engagementId: string, documentId: string): Promise<{ document: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/documents/${documentId}`
+    );
+    return response.data;
+  }
+
+  async uploadDocument(engagementId: string, file: File): Promise<{ document_id: string; status: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/documents`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  }
+
+  async deleteDocument(engagementId: string, documentId: string): Promise<void> {
+    await this.client.delete(`/api/v1/engagements/${engagementId}/documents/${documentId}`);
+  }
 }
 
 // Export a singleton instance

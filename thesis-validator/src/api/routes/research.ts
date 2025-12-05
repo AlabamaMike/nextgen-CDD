@@ -403,10 +403,11 @@ async function executeStressTestAsync(
 
   try {
     const result = await executeStressTestWorkflow({
-      engagement_id: engagement.id,
-      hypothesis_ids: config.hypothesis_ids,
-      intensity: config.intensity,
-      devil_advocate_mode: config.devil_advocate_mode,
+      engagementId: engagement.id,
+      hypothesisIds: config.hypothesis_ids,
+      config: {
+        intensity: config.intensity,
+      },
     });
 
     job.status = 'completed';

@@ -2,23 +2,28 @@
  * Stress Test Workflow - Hypothesis stress testing
  *
  * Systematic challenge of thesis assumptions:
- * 1. Retrieve thesis and supporting evidence
+ * 1. Retrieve hypotheses from PostgreSQL
  * 2. Generate adversarial queries for each assumption
  * 3. Search for contradicting evidence
  * 4. Score and categorize contradictions
  * 5. Update hypothesis confidence
- * 6. Generate stress test report
+ * 6. Persist contradictions to PostgreSQL
+ * 7. Generate stress test report
  */
 
-import type { AgentContext } from '../agents/base-agent.js';
 import {
-  createContradictionHunterAgent,
-  type ContradictionHunterInput,
-  type ContradictionHunterOutput,
-} from '../agents/index.js';
-import type { DealMemory } from '../memory/deal-memory.js';
-import type { HypothesisNode, EngagementEvent, ContradictionNode } from '../models/index.js';
+  HypothesisRepository,
+  ContradictionRepository,
+  type HypothesisDTO,
+} from '../repositories/index.js';
+import type { EngagementEvent } from '../models/index.js';
 import { createEvent, createHypothesisUpdatedEvent } from '../models/events.js';
+import { webSearch } from '../tools/web-search.js';
+import { getLLMProvider } from '../services/llm-provider.js';
+
+// Initialize repositories
+const hypothesisRepo = new HypothesisRepository();
+const contradictionRepo = new ContradictionRepository();
 
 /**
  * Stress test configuration
@@ -41,12 +46,10 @@ const defaultConfig: StressTestConfig = {
 };
 
 /**
- * Stress test input
+ * Stress test input (simplified - no DealMemory required)
  */
 export interface StressTestInput {
   engagementId: string;
-  dealMemory: DealMemory;
-  thesisId?: string;
   hypothesisIds?: string[];
   config?: Partial<StressTestConfig>;
   onEvent?: (event: EngagementEvent) => void;
@@ -62,8 +65,8 @@ export interface HypothesisStressTestResult {
   newConfidence: number;
   contradictions: Array<{
     id: string;
-    severity: number;
-    explanation: string;
+    severity: string;
+    description: string;
     evidencePreview: string;
   }>;
   status: 'passed' | 'challenged' | 'failed';
@@ -113,25 +116,19 @@ export class StressTestWorkflow {
     const startTime = Date.now();
     const config = { ...this.config, ...input.config };
 
-    // Get hypotheses to test
-    let hypotheses: HypothesisNode[] = [];
+    // Get hypotheses to test from PostgreSQL
+    let hypotheses: HypothesisDTO[] = [];
 
     if (input.hypothesisIds && input.hypothesisIds.length > 0) {
       for (const id of input.hypothesisIds) {
-        const hypothesis = await input.dealMemory.getHypothesis(id);
-        if (hypothesis) {
+        const hypothesis = await hypothesisRepo.getById(id);
+        if (hypothesis && hypothesis.engagementId === input.engagementId) {
           hypotheses.push(hypothesis);
         }
       }
-    } else if (input.thesisId) {
-      // Get all hypotheses from thesis tree
-      const tree = await input.dealMemory.getHypothesisTree(input.thesisId);
-      if (tree) {
-        hypotheses = tree.nodes;
-      }
     } else {
-      // Get all hypotheses
-      hypotheses = await input.dealMemory.getAllHypotheses();
+      // Get all hypotheses for engagement
+      hypotheses = await hypothesisRepo.getByEngagement(input.engagementId);
     }
 
     // Filter hypotheses based on config
@@ -151,16 +148,10 @@ export class StressTestWorkflow {
       { workflow_type: 'stress_test', hypothesis_count: hypotheses.length }
     ));
 
-    // Create contradiction hunter
-    const contradictionHunter = createContradictionHunterAgent();
-    contradictionHunter.setContext({
-      engagementId: input.engagementId,
-      dealMemory: input.dealMemory,
-      onEvent: input.onEvent,
-    });
-
     // Test hypotheses
     const results: HypothesisStressTestResult[] = [];
+    const allRiskFactors: StressTestOutput['riskFactors'] = [];
+    const allBearCaseThemes: string[] = [];
 
     for (let i = 0; i < hypotheses.length; i++) {
       const hypothesis = hypotheses[i]!;
@@ -177,25 +168,25 @@ export class StressTestWorkflow {
         }
       ));
 
-      // Run contradiction hunter on this hypothesis
-      const hunterResult = await contradictionHunter.execute({
-        hypothesisId: hypothesis.id,
-        intensity: config.intensity,
+      // Hunt for contradictions for this hypothesis
+      const contradictions = await this.huntContradictions(
+        input.engagementId,
+        hypothesis,
+        config.intensity,
+        config.maxContradictionsPerHypothesis
+      );
+
+      // Calculate new confidence based on contradictions
+      const severityScores = contradictions.map((c) => {
+        switch (c.severity) {
+          case 'high': return 0.9;
+          case 'medium': return 0.5;
+          case 'low': return 0.2;
+          default: return 0.3;
+        }
       });
-
-      if (!hunterResult.success || !hunterResult.data) {
-        continue;
-      }
-
-      const data = hunterResult.data;
-
-      // Calculate new confidence
-      const contradictionSeverity = data.contradictions
-        .filter((c) => c.hypothesisId === hypothesis.id)
-        .reduce((sum, c) => sum + c.contradiction.severity, 0);
-
-      const avgSeverity = data.contradictions.length > 0
-        ? contradictionSeverity / data.contradictions.length
+      const avgSeverity = severityScores.length > 0
+        ? severityScores.reduce((a, b) => a + b, 0) / severityScores.length
         : 0;
 
       const confidenceDelta = -avgSeverity * 0.3;
@@ -205,16 +196,15 @@ export class StressTestWorkflow {
       let status: HypothesisStressTestResult['status'] = 'passed';
       if (newConfidence < 0.3) {
         status = 'failed';
-      } else if (data.contradictions.some((c) => c.contradiction.severity > 0.5)) {
+      } else if (contradictions.some((c) => c.severity === 'high')) {
         status = 'challenged';
       }
 
-      // Update hypothesis confidence in memory
-      await input.dealMemory.updateHypothesisConfidence(
-        hypothesis.id,
-        newConfidence,
-        status === 'failed' ? 'refuted' : status === 'challenged' ? 'challenged' : hypothesis.status
-      );
+      // Update hypothesis confidence in PostgreSQL
+      await hypothesisRepo.update(hypothesis.id, {
+        confidence: newConfidence,
+        status: status === 'failed' ? 'refuted' : status === 'challenged' ? 'challenged' : hypothesis.status,
+      });
 
       // Emit hypothesis updated
       this.emitEvent(input, createHypothesisUpdatedEvent(
@@ -234,20 +224,23 @@ export class StressTestWorkflow {
         hypothesisContent: hypothesis.content,
         originalConfidence: hypothesis.confidence,
         newConfidence,
-        contradictions: data.contradictions
-          .filter((c) => c.hypothesisId === hypothesis.id)
-          .slice(0, config.maxContradictionsPerHypothesis)
-          .map((c) => ({
-            id: c.contradiction.id,
-            severity: c.contradiction.severity,
-            explanation: c.contradiction.explanation,
-            evidencePreview: c.evidenceContent.slice(0, 200),
-          })),
+        contradictions: contradictions.map((c) => ({
+          id: c.id,
+          severity: c.severity,
+          description: c.description,
+          evidencePreview: c.description.slice(0, 200),
+        })),
         status,
-        vulnerabilities: data.riskFactors
-          .filter((r) => r.severity === 'high')
-          .map((r) => r.description),
+        vulnerabilities: contradictions
+          .filter((c) => c.severity === 'high')
+          .map((c) => c.description),
       });
+
+      // Generate risk factors for this hypothesis
+      if (contradictions.length > 0) {
+        const riskFactors = await this.identifyRiskFactors(hypothesis.content, contradictions);
+        allRiskFactors.push(...riskFactors);
+      }
     }
 
     // Aggregate results
@@ -257,7 +250,7 @@ export class StressTestWorkflow {
       challenged: results.filter((r) => r.status === 'challenged').length,
       failed: results.filter((r) => r.status === 'failed').length,
       totalContradictions: allContradictions.length,
-      highSeverityContradictions: allContradictions.filter((c) => c.severity > 0.7).length,
+      highSeverityContradictions: allContradictions.filter((c) => c.severity === 'high').length,
     };
 
     // Calculate overall vulnerability
@@ -267,9 +260,11 @@ export class StressTestWorkflow {
         ) / results.length
       : 0;
 
-    // Aggregate bear case themes and risk factors
-    const bearCaseThemes: string[] = [];
-    const riskFactors: StressTestOutput['riskFactors'] = [];
+    // Generate bear case themes if we have contradictions
+    if (allContradictions.length > 0) {
+      const themes = await this.generateBearCaseThemes(results);
+      allBearCaseThemes.push(...themes);
+    }
 
     // Generate recommendations
     const recommendations = this.generateRecommendations(results, summary);
@@ -289,12 +284,274 @@ export class StressTestWorkflow {
       testedHypotheses: hypotheses.length,
       results,
       overallVulnerability,
-      bearCaseThemes,
-      riskFactors,
+      bearCaseThemes: allBearCaseThemes,
+      riskFactors: allRiskFactors,
       summary,
       recommendations,
       executionTimeMs: Date.now() - startTime,
     };
+  }
+
+  /**
+   * Hunt for contradictions for a hypothesis
+   */
+  private async huntContradictions(
+    engagementId: string,
+    hypothesis: HypothesisDTO,
+    intensity: 'light' | 'moderate' | 'aggressive',
+    maxContradictions: number
+  ): Promise<Array<{ id: string; description: string; severity: 'low' | 'medium' | 'high' }>> {
+    const contradictions: Array<{ id: string; description: string; severity: 'low' | 'medium' | 'high' }> = [];
+
+    // Generate adversarial search queries based on intensity
+    const queries = await this.generateAdversarialQueries(hypothesis.content, intensity);
+
+    // Search for contradicting evidence
+    for (const query of queries) {
+      if (contradictions.length >= maxContradictions) break;
+
+      try {
+        const maxResults = intensity === 'aggressive' ? 10 : intensity === 'moderate' ? 5 : 3;
+        const searchResult = await webSearch(query, {
+          maxResults,
+          searchDepth: intensity === 'aggressive' ? 'advanced' : 'basic',
+        });
+
+        for (const result of searchResult.results) {
+          if (contradictions.length >= maxContradictions) break;
+
+          // Analyze if this actually contradicts
+          const analysis = await this.analyzeContradiction(hypothesis.content, result.content);
+
+          if (analysis.isContradiction && analysis.severity !== 'none') {
+            // Persist contradiction to PostgreSQL
+            const contradiction = await contradictionRepo.create({
+              engagementId,
+              hypothesisId: hypothesis.id,
+              description: analysis.explanation,
+              severity: analysis.severity,
+              bearCaseTheme: analysis.bearCaseTheme,
+              metadata: {
+                sourceUrl: result.url,
+                sourceTitle: result.title,
+                query,
+              },
+            });
+
+            contradictions.push({
+              id: contradiction.id,
+              description: analysis.explanation,
+              severity: analysis.severity,
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`[StressTest] Search error for "${query}":`, error);
+      }
+    }
+
+    return contradictions;
+  }
+
+  /**
+   * Generate adversarial search queries
+   */
+  private async generateAdversarialQueries(
+    hypothesis: string,
+    intensity: 'light' | 'moderate' | 'aggressive'
+  ): Promise<string[]> {
+    const numQueries = intensity === 'aggressive' ? 8 : intensity === 'moderate' ? 5 : 3;
+
+    try {
+      const llm = await getLLMProvider();
+      const response = await llm.chat({
+        messages: [
+          {
+            role: 'user',
+            content: `Generate ${numQueries} adversarial search queries to find evidence that could CONTRADICT or CHALLENGE this hypothesis:
+
+Hypothesis: "${hypothesis}"
+
+Create queries that would find:
+- Problems, failures, or challenges related to this claim
+- Expert opinions that disagree
+- Historical examples where similar assumptions proved wrong
+- Risk factors or threats
+- Negative news or developments
+
+Be specific and creative. Output as JSON array:
+["query1", "query2", ...]`,
+          },
+        ],
+        temperature: 0.5,
+      });
+
+      const match = response.content.match(/\[[\s\S]*\]/);
+      if (match) {
+        const queries = JSON.parse(match[0]) as string[];
+        return queries.slice(0, numQueries);
+      }
+    } catch (error) {
+      console.error('[StressTest] Failed to generate adversarial queries:', error);
+    }
+
+    // Fallback queries
+    return [
+      `${hypothesis} problems`,
+      `${hypothesis} risks`,
+      `${hypothesis} challenges`,
+    ].slice(0, numQueries);
+  }
+
+  /**
+   * Analyze if content contradicts hypothesis
+   */
+  private async analyzeContradiction(
+    hypothesis: string,
+    content: string
+  ): Promise<{
+    isContradiction: boolean;
+    severity: 'none' | 'low' | 'medium' | 'high';
+    explanation: string;
+    bearCaseTheme?: string;
+  }> {
+    try {
+      const llm = await getLLMProvider();
+      const response = await llm.chat({
+        messages: [
+          {
+            role: 'user',
+            content: `Analyze if the following evidence contradicts the hypothesis:
+
+HYPOTHESIS: "${hypothesis}"
+
+EVIDENCE: "${content.slice(0, 1500)}"
+
+Determine:
+1. Does this evidence contradict or challenge the hypothesis?
+2. How severe is the contradiction (none/low/medium/high)?
+3. Explain why this contradicts the hypothesis
+4. What bear case theme does this support (optional)?
+
+Output as JSON:
+{
+  "is_contradiction": true/false,
+  "severity": "none|low|medium|high",
+  "explanation": "...",
+  "bear_case_theme": "..."
+}`,
+          },
+        ],
+        temperature: 0.2,
+      });
+
+      const match = response.content.match(/\{[\s\S]*\}/);
+      if (match) {
+        const analysis = JSON.parse(match[0]) as {
+          is_contradiction: boolean;
+          severity: string;
+          explanation: string;
+          bear_case_theme?: string;
+        };
+
+        return {
+          isContradiction: analysis.is_contradiction,
+          severity: (analysis.severity as 'none' | 'low' | 'medium' | 'high') || 'none',
+          explanation: analysis.explanation || 'Unable to analyze',
+          bearCaseTheme: analysis.bear_case_theme,
+        };
+      }
+    } catch (error) {
+      console.error('[StressTest] Failed to analyze contradiction:', error);
+    }
+
+    return {
+      isContradiction: false,
+      severity: 'none',
+      explanation: 'Unable to analyze',
+    };
+  }
+
+  /**
+   * Identify risk factors from contradictions
+   */
+  private async identifyRiskFactors(
+    hypothesis: string,
+    contradictions: Array<{ description: string; severity: string }>
+  ): Promise<StressTestOutput['riskFactors']> {
+    try {
+      const llm = await getLLMProvider();
+      const response = await llm.chat({
+        messages: [
+          {
+            role: 'user',
+            content: `Based on these contradictions to the hypothesis, identify key risk factors:
+
+HYPOTHESIS: "${hypothesis}"
+
+CONTRADICTIONS:
+${contradictions.map((c) => `- ${c.description} (severity: ${c.severity})`).join('\n')}
+
+Categorize risks into: Market, Competition, Execution, Financial, Regulatory, Technology
+
+For each risk, provide category, description, severity (low/medium/high), and potential mitigation.
+
+Output as JSON array:
+[{ "category": "...", "description": "...", "severity": "low|medium|high", "mitigation": "..." }]`,
+          },
+        ],
+        temperature: 0.3,
+      });
+
+      const match = response.content.match(/\[[\s\S]*\]/);
+      if (match) {
+        return JSON.parse(match[0]) as StressTestOutput['riskFactors'];
+      }
+    } catch (error) {
+      console.error('[StressTest] Failed to identify risk factors:', error);
+    }
+
+    return [];
+  }
+
+  /**
+   * Generate bear case themes
+   */
+  private async generateBearCaseThemes(
+    results: HypothesisStressTestResult[]
+  ): Promise<string[]> {
+    const challengedHypotheses = results.filter((r) => r.status !== 'passed');
+    if (challengedHypotheses.length === 0) return [];
+
+    try {
+      const llm = await getLLMProvider();
+      const response = await llm.chat({
+        messages: [
+          {
+            role: 'user',
+            content: `Based on these challenged hypotheses and contradictions, generate 3-5 key bear case themes:
+
+CHALLENGED HYPOTHESES:
+${challengedHypotheses.map((r) => `- ${r.hypothesisContent} (${r.contradictions.length} contradictions, status: ${r.status})`).join('\n')}
+
+Generate overarching themes that capture why this investment thesis could fail.
+
+Output as JSON array:
+["theme1", "theme2", ...]`,
+          },
+        ],
+        temperature: 0.4,
+      });
+
+      const match = response.content.match(/\[[\s\S]*\]/);
+      if (match) {
+        return JSON.parse(match[0]) as string[];
+      }
+    } catch (error) {
+      console.error('[StressTest] Failed to generate bear case themes:', error);
+    }
+
+    return [];
   }
 
   /**
@@ -316,10 +573,10 @@ export class StressTestWorkflow {
 
     // High severity contradictions
     for (const result of results) {
-      const highSeverity = result.contradictions.filter((c) => c.severity > 0.8);
+      const highSeverity = result.contradictions.filter((c) => c.severity === 'high');
       for (const c of highSeverity.slice(0, 1)) {
         recommendations.push(
-          `Address contradiction: ${c.explanation.slice(0, 100)}`
+          `Address contradiction: ${c.description.slice(0, 100)}`
         );
       }
     }

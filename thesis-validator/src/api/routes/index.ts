@@ -25,3 +25,7 @@ export {
 export {
   registerHypothesesRoutes,
 } from './hypotheses.js';
+
+export {
+  registerContradictionRoutes,
+} from './contradictions.js';

@@ -2,43 +2,41 @@
  * Evidence Routes
  *
  * REST API endpoints for evidence and document management
+ * Uses PostgreSQL repositories for persistence
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { MultipartFile } from '@fastify/multipart';
 import { z } from 'zod';
+import { writeFile, mkdir } from 'fs/promises';
 import {
   authHook,
   requireEngagementAccess,
   type AuthenticatedRequest,
 } from '../middleware/index.js';
-import { getEngagement } from './engagements.js';
-import { createDealMemory } from '../../memory/index.js';
-import {
-  CreateEvidenceRequestSchema,
-  EvidenceBatchInsertRequestSchema,
-  createEvidenceNode,
-  type EvidenceNode,
-  type ContradictionNode,
-} from '../../models/index.js';
-import { parseDocument, extractTextFromChunks } from '../../tools/index.js';
+import { EvidenceRepository, DocumentRepository } from '../../repositories/index.js';
+import type { EvidenceSourceType, EvidenceSentiment } from '../../models/evidence.js';
+import type { DocumentFormat } from '../../repositories/document-repository.js';
+import { createDocumentQueue, type DocumentJobData } from '../../workers/index.js';
 
-/**
- * Document metadata store
- */
-interface DocumentRecord {
-  id: string;
-  engagementId: string;
-  filename: string;
-  contentType: string;
-  size: number;
-  uploadedBy: string;
-  uploadedAt: number;
-  status: 'processing' | 'ready' | 'failed';
-  chunkCount?: number;
-  error?: string;
+// Extended request type with file method from @fastify/multipart
+interface MultipartRequest extends FastifyRequest {
+  file(): Promise<MultipartFile | undefined>;
 }
 
-const documentStore = new Map<string, DocumentRecord>();
+// Initialize repositories
+const evidenceRepo = new EvidenceRepository();
+const documentRepo = new DocumentRepository();
+
+// BullMQ queue for document processing
+let documentQueue: ReturnType<typeof createDocumentQueue> | null = null;
+
+function getDocumentQueue() {
+  if (!documentQueue) {
+    documentQueue = createDocumentQueue();
+  }
+  return documentQueue;
+}
 
 /**
  * Register evidence routes
@@ -57,11 +55,11 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       preHandler: requireEngagementAccess('viewer'),
       schema: {
         querystring: z.object({
-          query: z.string().optional(),
-          hypothesis_id: z.string().uuid().optional(),
-          source_type: z.string().optional(),
+          source_type: z.enum(['web', 'document', 'expert', 'data', 'filing', 'financial']).optional(),
           sentiment: z.enum(['supporting', 'contradicting', 'neutral']).optional(),
           min_credibility: z.coerce.number().min(0).max(1).optional(),
+          hypothesis_id: z.string().uuid().optional(),
+          document_id: z.string().uuid().optional(),
           limit: z.coerce.number().min(1).max(100).default(20),
           offset: z.coerce.number().min(0).default(0),
         }),
@@ -71,11 +69,11 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       request: FastifyRequest<{
         Params: { engagementId: string };
         Querystring: {
-          query?: string;
-          hypothesis_id?: string;
-          source_type?: string;
-          sentiment?: 'supporting' | 'contradicting' | 'neutral';
+          source_type?: EvidenceSourceType;
+          sentiment?: EvidenceSentiment;
           min_credibility?: number;
+          hypothesis_id?: string;
+          document_id?: string;
           limit: number;
           offset: number;
         };
@@ -83,51 +81,46 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       reply: FastifyReply
     ) => {
       const { engagementId } = request.params;
-      const { query, hypothesis_id, source_type, sentiment, min_credibility, limit, offset } =
+      const { source_type, sentiment, min_credibility, hypothesis_id, document_id, limit, offset } =
         request.query;
 
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
-      const dealMemory = createDealMemory();
-
-      // Search evidence
-      let evidence = await dealMemory.searchEvidence(
-        engagementId,
-        query ?? '',
-        limit + offset + 100 // Get extra for filtering
-      );
-
-      // Apply filters
-      if (hypothesis_id) {
-        evidence = evidence.filter((e) => e.hypothesis_ids.includes(hypothesis_id));
-      }
-      if (source_type) {
-        evidence = evidence.filter((e) => e.source.type === source_type);
-      }
-      if (sentiment) {
-        evidence = evidence.filter((e) => e.sentiment === sentiment);
-      }
-      if (min_credibility !== undefined) {
-        evidence = evidence.filter((e) => e.credibility_score >= min_credibility);
-      }
-
-      // Apply pagination
-      const total = evidence.length;
-      const paginated = evidence.slice(offset, offset + limit);
-
-      reply.send({
-        evidence: paginated,
-        total,
+      const evidence = await evidenceRepo.getByEngagement(engagementId, {
+        ...(source_type ? { sourceType: source_type } : {}),
+        ...(sentiment ? { sentiment } : {}),
+        ...(min_credibility !== undefined ? { minCredibility: min_credibility } : {}),
+        ...(hypothesis_id ? { hypothesisId: hypothesis_id } : {}),
+        ...(document_id ? { documentId: document_id } : {}),
         limit,
         offset,
       });
+
+      reply.send({
+        evidence,
+        total: evidence.length,
+        limit,
+        offset,
+      });
+    }
+  );
+
+  /**
+   * Get evidence statistics
+   * GET /engagements/:engagementId/evidence/stats
+   */
+  fastify.get(
+    '/:engagementId/evidence/stats',
+    {
+      preHandler: requireEngagementAccess('viewer'),
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { engagementId: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { engagementId } = request.params;
+      const stats = await evidenceRepo.getStats(engagementId);
+      reply.send({ stats });
     }
   );
 
@@ -148,20 +141,8 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
     ) => {
       const { engagementId, evidenceId } = request.params;
 
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
-      const dealMemory = createDealMemory();
-      const evidence = await dealMemory.searchEvidence(engagementId, '', 1000);
-      const item = evidence.find((e) => e.id === evidenceId);
-
-      if (!item) {
+      const evidence = await evidenceRepo.getById(evidenceId);
+      if (!evidence || evidence.engagementId !== engagementId) {
         reply.status(404).send({
           error: 'Not Found',
           message: 'Evidence not found',
@@ -170,8 +151,8 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       }
 
       reply.send({
-        evidence: item,
-        provenance: item.provenance,
+        evidence,
+        provenance: evidence.provenance,
       });
     }
   );
@@ -185,35 +166,62 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
     {
       preHandler: requireEngagementAccess('editor'),
       schema: {
-        body: CreateEvidenceRequestSchema,
+        body: z.object({
+          content: z.string().min(1),
+          sourceType: z.enum(['web', 'document', 'expert', 'data', 'filing', 'financial']),
+          sourceUrl: z.string().url().optional(),
+          sourceTitle: z.string().optional(),
+          sourceAuthor: z.string().optional(),
+          sourcePublicationDate: z.coerce.date().optional(),
+          credibility: z.number().min(0).max(1).optional(),
+          sentiment: z.enum(['supporting', 'neutral', 'contradicting']).optional(),
+          hypothesisIds: z.array(z.string().uuid()).optional(),
+          metadata: z.record(z.unknown()).optional(),
+        }),
       },
     },
     async (
       request: FastifyRequest<{
         Params: { engagementId: string };
-        Body: z.infer<typeof CreateEvidenceRequestSchema>;
+        Body: {
+          content: string;
+          sourceType: EvidenceSourceType;
+          sourceUrl?: string;
+          sourceTitle?: string;
+          sourceAuthor?: string;
+          sourcePublicationDate?: Date;
+          credibility?: number;
+          sentiment?: EvidenceSentiment;
+          hypothesisIds?: string[];
+          metadata?: Record<string, unknown>;
+        };
       }>,
       reply: FastifyReply
     ) => {
-      const user = (request as AuthenticatedRequest).user;
       const { engagementId } = request.params;
-      const evidenceRequest = request.body;
+      const body = request.body;
 
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
+      // Create evidence
+      const evidence = await evidenceRepo.create({
+        engagementId,
+        content: body.content,
+        sourceType: body.sourceType,
+        ...(body.sourceUrl ? { sourceUrl: body.sourceUrl } : {}),
+        ...(body.sourceTitle ? { sourceTitle: body.sourceTitle } : {}),
+        ...(body.sourceAuthor ? { sourceAuthor: body.sourceAuthor } : {}),
+        ...(body.sourcePublicationDate ? { sourcePublicationDate: body.sourcePublicationDate } : {}),
+        ...(body.credibility !== undefined ? { credibility: body.credibility } : {}),
+        ...(body.sentiment ? { sentiment: body.sentiment } : {}),
+        ...(body.metadata ? { metadata: body.metadata } : {}),
+        retrievedAt: new Date(),
+      });
+
+      // Link to hypotheses if provided
+      if (body.hypothesisIds) {
+        for (const hypothesisId of body.hypothesisIds) {
+          await evidenceRepo.linkToHypothesis(evidence.id, hypothesisId, 0.5);
+        }
       }
-
-      // Create evidence node
-      const evidence = createEvidenceNode(evidenceRequest, user.id);
-
-      // Store in deal memory
-      const dealMemory = createDealMemory();
-      await dealMemory.storeEvidence(engagementId, evidence);
 
       reply.status(201).send({
         evidence,
@@ -223,177 +231,173 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
   );
 
   /**
-   * Batch add evidence
-   * POST /engagements/:engagementId/evidence/batch
-   */
-  fastify.post(
-    '/:engagementId/evidence/batch',
-    {
-      preHandler: requireEngagementAccess('editor'),
-      schema: {
-        body: EvidenceBatchInsertRequestSchema,
-      },
-    },
-    async (
-      request: FastifyRequest<{
-        Params: { engagementId: string };
-        Body: z.infer<typeof EvidenceBatchInsertRequestSchema>;
-      }>,
-      reply: FastifyReply
-    ) => {
-      const user = (request as AuthenticatedRequest).user;
-      const { engagementId } = request.params;
-      const { evidence: evidenceRequests } = request.body;
-
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
-      const dealMemory = createDealMemory();
-      const created: EvidenceNode[] = [];
-      const errors: { index: number; error: string }[] = [];
-
-      for (let i = 0; i < evidenceRequests.length; i++) {
-        try {
-          const evidence = createEvidenceNode(evidenceRequests[i]!, user.id);
-          await dealMemory.storeEvidence(engagementId, evidence);
-          created.push(evidence);
-        } catch (error) {
-          errors.push({
-            index: i,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
-      }
-
-      reply.status(201).send({
-        created_count: created.length,
-        error_count: errors.length,
-        evidence: created,
-        errors: errors.length > 0 ? errors : undefined,
-      });
-    }
-  );
-
-  /**
-   * Get contradictions for engagement
-   * GET /engagements/:engagementId/contradictions
-   */
-  fastify.get(
-    '/:engagementId/contradictions',
-    {
-      preHandler: requireEngagementAccess('viewer'),
-      schema: {
-        querystring: z.object({
-          hypothesis_id: z.string().uuid().optional(),
-          severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-          status: z.enum(['pending', 'investigating', 'resolved', 'dismissed']).optional(),
-          limit: z.coerce.number().min(1).max(100).default(20),
-          offset: z.coerce.number().min(0).default(0),
-        }),
-      },
-    },
-    async (
-      request: FastifyRequest<{
-        Params: { engagementId: string };
-        Querystring: {
-          hypothesis_id?: string;
-          severity?: 'low' | 'medium' | 'high' | 'critical';
-          status?: 'pending' | 'investigating' | 'resolved' | 'dismissed';
-          limit: number;
-          offset: number;
-        };
-      }>,
-      reply: FastifyReply
-    ) => {
-      const { engagementId } = request.params;
-      const { hypothesis_id, severity, status, limit, offset } = request.query;
-
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
-      const dealMemory = createDealMemory();
-      let contradictions = await dealMemory.searchContradictions(engagementId, '', 200);
-
-      // Apply filters
-      if (hypothesis_id) {
-        contradictions = contradictions.filter((c) => c.hypothesis_id === hypothesis_id);
-      }
-      if (severity) {
-        contradictions = contradictions.filter((c) => c.severity === severity);
-      }
-      if (status) {
-        contradictions = contradictions.filter((c) => c.status === status);
-      }
-
-      // Apply pagination
-      const total = contradictions.length;
-      const paginated = contradictions.slice(offset, offset + limit);
-
-      reply.send({
-        contradictions: paginated,
-        total,
-        limit,
-        offset,
-      });
-    }
-  );
-
-  /**
-   * Update contradiction status
-   * PATCH /engagements/:engagementId/contradictions/:contradictionId
+   * Update evidence
+   * PATCH /engagements/:engagementId/evidence/:evidenceId
    */
   fastify.patch(
-    '/:engagementId/contradictions/:contradictionId',
+    '/:engagementId/evidence/:evidenceId',
     {
       preHandler: requireEngagementAccess('editor'),
       schema: {
         body: z.object({
-          status: z.enum(['pending', 'investigating', 'resolved', 'dismissed']).optional(),
-          resolution_notes: z.string().optional(),
+          content: z.string().min(1).optional(),
+          credibility: z.number().min(0).max(1).optional(),
+          sentiment: z.enum(['supporting', 'neutral', 'contradicting']).optional(),
+          metadata: z.record(z.unknown()).optional(),
         }),
       },
     },
     async (
       request: FastifyRequest<{
-        Params: { engagementId: string; contradictionId: string };
+        Params: { engagementId: string; evidenceId: string };
         Body: {
-          status?: 'pending' | 'investigating' | 'resolved' | 'dismissed';
-          resolution_notes?: string;
+          content?: string;
+          credibility?: number;
+          sentiment?: EvidenceSentiment;
+          metadata?: Record<string, unknown>;
         };
       }>,
       reply: FastifyReply
     ) => {
-      const { engagementId, contradictionId } = request.params;
+      const { engagementId, evidenceId } = request.params;
       const updates = request.body;
 
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
+      const existing = await evidenceRepo.getById(evidenceId);
+      if (!existing || existing.engagementId !== engagementId) {
         reply.status(404).send({
           error: 'Not Found',
-          message: 'Engagement not found',
+          message: 'Evidence not found',
         });
         return;
       }
 
-      // Note: In production, this would update the contradiction in the database
+      const updated = await evidenceRepo.update(evidenceId, updates);
+
       reply.send({
-        message: 'Contradiction updated',
-        updates,
+        evidence: updated,
+        message: 'Evidence updated successfully',
       });
     }
   );
+
+  /**
+   * Delete evidence
+   * DELETE /engagements/:engagementId/evidence/:evidenceId
+   */
+  fastify.delete(
+    '/:engagementId/evidence/:evidenceId',
+    {
+      preHandler: requireEngagementAccess('editor'),
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { engagementId: string; evidenceId: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { engagementId, evidenceId } = request.params;
+
+      const existing = await evidenceRepo.getById(evidenceId);
+      if (!existing || existing.engagementId !== engagementId) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Evidence not found',
+        });
+        return;
+      }
+
+      await evidenceRepo.delete(evidenceId);
+
+      reply.send({
+        message: 'Evidence deleted successfully',
+      });
+    }
+  );
+
+  /**
+   * Link evidence to hypothesis
+   * POST /engagements/:engagementId/evidence/:evidenceId/hypotheses
+   */
+  fastify.post(
+    '/:engagementId/evidence/:evidenceId/hypotheses',
+    {
+      preHandler: requireEngagementAccess('editor'),
+      schema: {
+        body: z.object({
+          hypothesisId: z.string().uuid(),
+          relevanceScore: z.number().min(0).max(1).optional(),
+        }),
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { engagementId: string; evidenceId: string };
+        Body: { hypothesisId: string; relevanceScore?: number };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { engagementId, evidenceId } = request.params;
+      const { hypothesisId, relevanceScore } = request.body;
+
+      const existing = await evidenceRepo.getById(evidenceId);
+      if (!existing || existing.engagementId !== engagementId) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Evidence not found',
+        });
+        return;
+      }
+
+      await evidenceRepo.linkToHypothesis(evidenceId, hypothesisId, relevanceScore ?? 0.5);
+
+      reply.status(201).send({
+        message: 'Evidence linked to hypothesis',
+      });
+    }
+  );
+
+  /**
+   * Unlink evidence from hypothesis
+   * DELETE /engagements/:engagementId/evidence/:evidenceId/hypotheses/:hypothesisId
+   */
+  fastify.delete(
+    '/:engagementId/evidence/:evidenceId/hypotheses/:hypothesisId',
+    {
+      preHandler: requireEngagementAccess('editor'),
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { engagementId: string; evidenceId: string; hypothesisId: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { engagementId, evidenceId, hypothesisId } = request.params;
+
+      const existing = await evidenceRepo.getById(evidenceId);
+      if (!existing || existing.engagementId !== engagementId) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Evidence not found',
+        });
+        return;
+      }
+
+      const unlinked = await evidenceRepo.unlinkFromHypothesis(evidenceId, hypothesisId);
+      if (!unlinked) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Link not found',
+        });
+        return;
+      }
+
+      reply.send({
+        message: 'Evidence unlinked from hypothesis',
+      });
+    }
+  );
+
+  // ============== Document Routes ==============
 
   /**
    * Upload document
@@ -408,17 +412,8 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       const user = (request as AuthenticatedRequest).user;
       const { engagementId } = request.params;
 
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
       // Handle multipart upload
-      const data = await request.file();
+      const data = await (request as MultipartRequest).file();
       if (!data) {
         reply.status(400).send({
           error: 'Bad Request',
@@ -427,27 +422,52 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
+      // Determine format from mime type
+      let format: DocumentFormat = 'unknown';
+      if (data.mimetype.includes('pdf')) format = 'pdf';
+      else if (data.mimetype.includes('wordprocessingml')) format = 'docx';
+      else if (data.mimetype.includes('spreadsheetml')) format = 'xlsx';
+      else if (data.mimetype.includes('presentationml')) format = 'pptx';
+      else if (data.mimetype.includes('html')) format = 'html';
+      else if (data.mimetype.startsWith('image/')) format = 'image';
+
+      // Read file content
+      const chunks: Buffer[] = [];
+      for await (const chunk of data.file) {
+        chunks.push(chunk as Buffer);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      // Save to temp storage
+      const storagePath = `/tmp/documents/${crypto.randomUUID()}_${data.filename}`;
+      await mkdir('/tmp/documents', { recursive: true });
+      await writeFile(storagePath, buffer);
+
       // Create document record
-      const docId = crypto.randomUUID();
-      const document: DocumentRecord = {
-        id: docId,
+      const document = await documentRepo.create({
         engagementId,
         filename: data.filename,
-        contentType: data.mimetype,
-        size: 0, // Would be calculated from stream
+        originalFilename: data.filename,
+        format,
+        mimeType: data.mimetype,
+        sizeBytes: buffer.length,
+        storagePath,
         uploadedBy: user.id,
-        uploadedAt: Date.now(),
-        status: 'processing',
-      };
-      documentStore.set(docId, document);
+      });
 
-      // Process document asynchronously
-      processDocumentAsync(document, data);
+      // Queue for processing
+      const queue = getDocumentQueue();
+      await queue.add('process', {
+        documentId: document.id,
+        engagementId,
+        storagePath,
+        mimeType: data.mimetype,
+      } as DocumentJobData);
 
       reply.status(202).send({
-        document_id: docId,
+        document_id: document.id,
         message: 'Document uploaded, processing started',
-        status_url: `/engagements/${engagementId}/documents/${docId}`,
+        status: 'pending',
       });
     }
   );
@@ -469,7 +489,7 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
     ) => {
       const { engagementId, documentId } = request.params;
 
-      const document = documentStore.get(documentId);
+      const document = await documentRepo.getById(documentId);
       if (!document || document.engagementId !== engagementId) {
         reply.status(404).send({
           error: 'Not Found',
@@ -478,19 +498,7 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
-      reply.send({
-        document: {
-          id: document.id,
-          filename: document.filename,
-          content_type: document.contentType,
-          size: document.size,
-          uploaded_by: document.uploadedBy,
-          uploaded_at: document.uploadedAt,
-          status: document.status,
-          chunk_count: document.chunkCount,
-          error: document.error,
-        },
-      });
+      reply.send({ document });
     }
   );
 
@@ -504,7 +512,8 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
       preHandler: requireEngagementAccess('viewer'),
       schema: {
         querystring: z.object({
-          status: z.enum(['processing', 'ready', 'failed']).optional(),
+          status: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
+          format: z.enum(['pdf', 'docx', 'xlsx', 'pptx', 'html', 'image', 'unknown']).optional(),
           limit: z.coerce.number().min(1).max(100).default(20),
           offset: z.coerce.number().min(0).default(0),
         }),
@@ -513,37 +522,28 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
     async (
       request: FastifyRequest<{
         Params: { engagementId: string };
-        Querystring: { status?: 'processing' | 'ready' | 'failed'; limit: number; offset: number };
+        Querystring: {
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          format?: DocumentFormat;
+          limit: number;
+          offset: number;
+        };
       }>,
       reply: FastifyReply
     ) => {
       const { engagementId } = request.params;
-      const { status, limit, offset } = request.query;
+      const { status, format, limit, offset } = request.query;
 
-      let documents = Array.from(documentStore.values()).filter(
-        (d) => d.engagementId === engagementId
-      );
-
-      if (status) {
-        documents = documents.filter((d) => d.status === status);
-      }
-
-      // Sort by upload date descending
-      documents.sort((a, b) => b.uploadedAt - a.uploadedAt);
-
-      const total = documents.length;
-      const paginated = documents.slice(offset, offset + limit);
+      const documents = await documentRepo.getByEngagement(engagementId, {
+        ...(status ? { status } : {}),
+        ...(format ? { format } : {}),
+        limit,
+        offset,
+      });
 
       reply.send({
-        documents: paginated.map((d) => ({
-          id: d.id,
-          filename: d.filename,
-          content_type: d.contentType,
-          size: d.size,
-          uploaded_at: d.uploadedAt,
-          status: d.status,
-        })),
-        total,
+        documents,
+        total: documents.length,
         limit,
         offset,
       });
@@ -567,7 +567,7 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
     ) => {
       const { engagementId, documentId } = request.params;
 
-      const document = documentStore.get(documentId);
+      const document = await documentRepo.getById(documentId);
       if (!document || document.engagementId !== engagementId) {
         reply.status(404).send({
           error: 'Not Found',
@@ -576,65 +576,20 @@ export async function registerEvidenceRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
-      documentStore.delete(documentId);
+      // Delete associated evidence
+      const evidence = await evidenceRepo.getByEngagement(engagementId, { documentId });
+      for (const e of evidence) {
+        await evidenceRepo.delete(e.id);
+      }
 
-      // Note: In production, also delete from deal memory and storage
+      // Delete document
+      await documentRepo.delete(documentId);
+
+      // Note: In production, also delete file from storage
 
       reply.send({
-        message: 'Document deleted successfully',
+        message: 'Document and associated evidence deleted successfully',
       });
     }
   );
-}
-
-/**
- * Process document asynchronously
- */
-async function processDocumentAsync(
-  document: DocumentRecord,
-  fileData: { filename: string; mimetype: string; file: NodeJS.ReadableStream }
-): Promise<void> {
-  try {
-    // Read file content
-    const chunks: Buffer[] = [];
-    for await (const chunk of fileData.file) {
-      chunks.push(chunk as Buffer);
-    }
-    const buffer = Buffer.concat(chunks);
-    document.size = buffer.length;
-
-    // Determine format from mime type
-    let format: 'pdf' | 'docx' | 'xlsx' | 'txt' | 'html' | 'json' = 'txt';
-    if (fileData.mimetype.includes('pdf')) format = 'pdf';
-    else if (fileData.mimetype.includes('wordprocessingml')) format = 'docx';
-    else if (fileData.mimetype.includes('spreadsheetml')) format = 'xlsx';
-    else if (fileData.mimetype.includes('html')) format = 'html';
-    else if (fileData.mimetype.includes('json')) format = 'json';
-
-    // Parse document
-    const parseResult = await parseDocument(buffer, {
-      format,
-      chunk_size: 1000,
-      chunk_overlap: 200,
-      extract_tables: true,
-      extract_metadata: true,
-    });
-
-    document.chunkCount = parseResult.chunks.length;
-    document.status = 'ready';
-
-    // Store chunks in deal memory
-    const dealMemory = createDealMemory();
-    await dealMemory.storeDocument(document.engagementId, {
-      id: document.id,
-      filename: document.filename,
-      content: extractTextFromChunks(parseResult.chunks),
-      metadata: parseResult.metadata,
-      chunks: parseResult.chunks,
-      uploadedAt: document.uploadedAt,
-    });
-  } catch (error) {
-    document.status = 'failed';
-    document.error = error instanceof Error ? error.message : 'Processing failed';
-  }
 }

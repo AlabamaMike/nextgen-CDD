@@ -16,6 +16,7 @@ import type {
   CausalRelationship,
 } from '../models/hypothesis.js';
 import { createHypothesisUpdatedEvent, createEvent } from '../models/events.js';
+import { HypothesisRepository } from '../repositories/index.js';
 
 /**
  * Hypothesis builder input
@@ -52,6 +53,8 @@ export interface HypothesisBuilderOutput {
  * Hypothesis Builder Agent implementation
  */
 export class HypothesisBuilderAgent extends BaseAgent {
+  private hypothesisRepo = new HypothesisRepository();
+
   constructor() {
     super({
       id: 'hypothesis_builder',
@@ -134,6 +137,40 @@ Output structured JSON with clear hierarchy and relationships.`,
           strength: rel.strength,
           reasoning: rel.reasoning,
         });
+      }
+
+      // Store hypotheses in PostgreSQL
+      // Map in-memory IDs to PostgreSQL IDs
+      const idMap = new Map<string, string>();
+
+      for (const hypothesis of hypotheses) {
+        const pgHypothesis = await this.hypothesisRepo.create({
+          engagementId: this.context.engagementId,
+          type: hypothesis.type,
+          content: hypothesis.content,
+          confidence: hypothesis.confidence,
+          status: hypothesis.status,
+          createdBy: this.config.id,
+          metadata: hypothesis.metadata,
+        });
+        // Map in-memory ID to PostgreSQL ID
+        idMap.set(hypothesis.id, pgHypothesis.id);
+      }
+
+      // Store relationships in PostgreSQL using mapped IDs
+      for (const rel of relationships) {
+        const pgSourceId = idMap.get(rel.sourceId);
+        const pgTargetId = idMap.get(rel.targetId);
+
+        if (pgSourceId && pgTargetId) {
+          await this.hypothesisRepo.addEdge({
+            sourceId: pgSourceId,
+            targetId: pgTargetId,
+            relationship: rel.relationship,
+            strength: rel.strength,
+            reasoning: rel.reasoning,
+          });
+        }
       }
 
       // Emit hypothesis created events

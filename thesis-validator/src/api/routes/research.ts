@@ -159,55 +159,9 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
     }
   );
 
-  /**
-   * Get specific hypothesis
-   * GET /engagements/:engagementId/hypotheses/:hypothesisId
-   */
-  fastify.get(
-    '/:engagementId/hypotheses/:hypothesisId',
-    {
-      preHandler: requireEngagementAccess('viewer'),
-    },
-    async (
-      request: FastifyRequest<{
-        Params: { engagementId: string; hypothesisId: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      const { engagementId, hypothesisId } = request.params;
-
-      const engagement = getEngagement(engagementId);
-      if (!engagement) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Engagement not found',
-        });
-        return;
-      }
-
-      const dealMemory = createDealMemory();
-      const hypotheses = await dealMemory.searchHypotheses(engagementId, '', 100);
-      const hypothesis = hypotheses.find((h) => h.id === hypothesisId);
-
-      if (!hypothesis) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Hypothesis not found',
-        });
-        return;
-      }
-
-      // Get related evidence
-      const evidence = await dealMemory.searchEvidence(engagementId, hypothesis.statement, 20);
-      const relatedEvidence = evidence.filter((e) => e.hypothesis_ids.includes(hypothesisId));
-
-      reply.send({
-        hypothesis,
-        evidence: relatedEvidence,
-        evidence_count: relatedEvidence.length,
-      });
-    }
-  );
+  // NOTE: Hypothesis CRUD routes moved to hypotheses.ts (Slice 1)
+  // The route GET /engagements/:engagementId/hypotheses/:hypothesisId
+  // is now handled by the dedicated hypotheses routes module
 
   /**
    * Execute stress test workflow

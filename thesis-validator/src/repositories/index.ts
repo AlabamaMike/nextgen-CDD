@@ -13,3 +13,18 @@ export type {
   ContradictionSeverity,
   ContradictionStatus,
 } from './contradiction-repository.js';
+export { MetricsRepository } from './metrics-repository.js';
+export type {
+  CreateMetricParams,
+  MetricDTO,
+  MetricType,
+  ResearchQualityMetrics,
+} from './metrics-repository.js';
+export { StressTestRepository } from './stress-test-repository.js';
+export type {
+  CreateStressTestParams,
+  StressTestDTO,
+  StressTestIntensity,
+  StressTestStatus,
+  UpdateStressTestParams,
+} from './stress-test-repository.js';

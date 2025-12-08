@@ -25,6 +25,7 @@ import { getInstitutionalMemory } from '../memory/institutional-memory.js';
 import { getMarketIntelligence } from '../memory/market-intelligence.js';
 import type { Engagement, EngagementEvent, InvestmentThesis, Sector, DealType } from '../models/index.js';
 import { createEvent } from '../models/events.js';
+import { MetricsRepository } from '../repositories/index.js';
 
 /**
  * Research workflow configuration
@@ -35,6 +36,7 @@ export interface ResearchWorkflowConfig {
   contradictionIntensity: 'light' | 'moderate' | 'aggressive';
   maxEvidencePerHypothesis: number;
   parallelAgents: boolean;
+  recordMetrics: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ const defaultConfig: ResearchWorkflowConfig = {
   contradictionIntensity: 'moderate',
   maxEvidencePerHypothesis: 20,
   parallelAgents: true,
+  recordMetrics: true,
 };
 
 /**
@@ -246,6 +249,15 @@ export class ResearchWorkflow {
         contradictionResult?.data
       );
 
+      // Record research quality metrics
+      if (config.recordMetrics) {
+        await this.recordResearchMetrics(
+          input.engagement.id,
+          overallConfidence,
+          contradictionResult?.data?.overallVulnerability ?? 0
+        );
+      }
+
       // Emit workflow completed
       this.emitEvent(input, createEvent(
         'workflow.completed',
@@ -340,6 +352,62 @@ export class ResearchWorkflow {
     }
 
     return recommendations.slice(0, 10);
+  }
+
+  /**
+   * Record research quality metrics
+   */
+  private async recordResearchMetrics(
+    engagementId: string,
+    overallConfidence: number,
+    vulnerability: number
+  ): Promise<void> {
+    try {
+      const metricsRepo = new MetricsRepository();
+
+      // Calculate and record all metrics from database
+      await metricsRepo.calculateAndRecordMetrics(engagementId);
+
+      // Also record the computed metrics from this workflow
+      await metricsRepo.record({
+        engagementId,
+        metricType: 'overall_confidence',
+        value: overallConfidence,
+        metadata: { source: 'research_workflow' },
+      });
+
+      await metricsRepo.record({
+        engagementId,
+        metricType: 'stress_test_vulnerability',
+        value: vulnerability,
+        metadata: { source: 'research_workflow' },
+      });
+
+      // Calculate and record research completeness
+      const researchCompleteness = this.calculateResearchCompleteness();
+      await metricsRepo.record({
+        engagementId,
+        metricType: 'research_completeness',
+        value: researchCompleteness,
+        metadata: { source: 'research_workflow' },
+      });
+    } catch (error) {
+      console.error('[ResearchWorkflow] Failed to record metrics:', error);
+    }
+  }
+
+  /**
+   * Calculate research completeness (0-1 score)
+   */
+  private calculateResearchCompleteness(): number {
+    if (!this.dealMemory) return 0;
+
+    // This is a simplified calculation
+    // In a full implementation, this would check:
+    // - All critical hypotheses have evidence
+    // - Contradictions have been reviewed
+    // - Expert input has been gathered
+    return 0.75; // Default for now
   }
 
   /**

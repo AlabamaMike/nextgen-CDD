@@ -29,3 +29,11 @@ export {
 export {
   registerContradictionRoutes,
 } from './contradictions.js';
+
+export {
+  registerMetricsRoutes,
+} from './metrics.js';
+
+export {
+  registerStressTestRoutes,
+} from './stress-tests.js';

@@ -14,6 +14,7 @@
 import {
   HypothesisRepository,
   ContradictionRepository,
+  MetricsRepository,
   type HypothesisDTO,
 } from '../repositories/index.js';
 import type { EngagementEvent } from '../models/index.js';
@@ -24,6 +25,7 @@ import { getLLMProvider } from '../services/llm-provider.js';
 // Initialize repositories
 const hypothesisRepo = new HypothesisRepository();
 const contradictionRepo = new ContradictionRepository();
+const metricsRepo = new MetricsRepository();
 
 /**
  * Stress test configuration
@@ -269,6 +271,26 @@ export class StressTestWorkflow {
     // Generate recommendations
     const recommendations = this.generateRecommendations(results, summary);
 
+    // Record stress test vulnerability metric
+    try {
+      await metricsRepo.record({
+        engagementId: input.engagementId,
+        metricType: 'stress_test_vulnerability',
+        value: overallVulnerability,
+        metadata: {
+          source: 'stress_test_workflow',
+          intensity: config.intensity,
+          testedHypotheses: hypotheses.length,
+          totalContradictions: summary.totalContradictions,
+        },
+      });
+
+      // Also recalculate overall metrics after stress test
+      await metricsRepo.calculateAndRecordMetrics(input.engagementId);
+    } catch (error) {
+      console.error('[StressTest] Failed to record metrics:', error);
+    }
+
     // Emit workflow completed
     this.emitEvent(input, createEvent(
       'workflow.completed',
@@ -330,7 +352,7 @@ export class StressTestWorkflow {
               hypothesisId: hypothesis.id,
               description: analysis.explanation,
               severity: analysis.severity,
-              bearCaseTheme: analysis.bearCaseTheme,
+              ...(analysis.bearCaseTheme ? { bearCaseTheme: analysis.bearCaseTheme } : {}),
               metadata: {
                 sourceUrl: result.url,
                 sourceTitle: result.title,
@@ -364,7 +386,9 @@ export class StressTestWorkflow {
 
     try {
       const llm = await getLLMProvider();
-      const response = await llm.chat({
+      const response = await llm.createMessage({
+        model: llm.getModel(),
+        maxTokens: 1024,
         messages: [
           {
             role: 'user',
@@ -386,7 +410,10 @@ Be specific and creative. Output as JSON array:
         temperature: 0.5,
       });
 
-      const match = response.content.match(/\[[\s\S]*\]/);
+      // Extract text content from response
+      const textContent = response.content.find((c) => c.type === 'text');
+      const text = textContent && 'text' in textContent ? textContent.text : '';
+      const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const queries = JSON.parse(match[0]) as string[];
         return queries.slice(0, numQueries);
@@ -417,7 +444,9 @@ Be specific and creative. Output as JSON array:
   }> {
     try {
       const llm = await getLLMProvider();
-      const response = await llm.chat({
+      const response = await llm.createMessage({
+        model: llm.getModel(),
+        maxTokens: 1024,
         messages: [
           {
             role: 'user',
@@ -445,7 +474,10 @@ Output as JSON:
         temperature: 0.2,
       });
 
-      const match = response.content.match(/\{[\s\S]*\}/);
+      // Extract text content from response
+      const textContent = response.content.find((c) => c.type === 'text');
+      const text = textContent && 'text' in textContent ? textContent.text : '';
+      const match = text.match(/\{[\s\S]*\}/);
       if (match) {
         const analysis = JSON.parse(match[0]) as {
           is_contradiction: boolean;
@@ -458,7 +490,7 @@ Output as JSON:
           isContradiction: analysis.is_contradiction,
           severity: (analysis.severity as 'none' | 'low' | 'medium' | 'high') || 'none',
           explanation: analysis.explanation || 'Unable to analyze',
-          bearCaseTheme: analysis.bear_case_theme,
+          ...(analysis.bear_case_theme ? { bearCaseTheme: analysis.bear_case_theme } : {}),
         };
       }
     } catch (error) {
@@ -481,7 +513,9 @@ Output as JSON:
   ): Promise<StressTestOutput['riskFactors']> {
     try {
       const llm = await getLLMProvider();
-      const response = await llm.chat({
+      const response = await llm.createMessage({
+        model: llm.getModel(),
+        maxTokens: 1024,
         messages: [
           {
             role: 'user',
@@ -503,7 +537,10 @@ Output as JSON array:
         temperature: 0.3,
       });
 
-      const match = response.content.match(/\[[\s\S]*\]/);
+      // Extract text content from response
+      const textContent = response.content.find((c) => c.type === 'text');
+      const text = textContent && 'text' in textContent ? textContent.text : '';
+      const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         return JSON.parse(match[0]) as StressTestOutput['riskFactors'];
       }
@@ -525,7 +562,9 @@ Output as JSON array:
 
     try {
       const llm = await getLLMProvider();
-      const response = await llm.chat({
+      const response = await llm.createMessage({
+        model: llm.getModel(),
+        maxTokens: 1024,
         messages: [
           {
             role: 'user',
@@ -543,7 +582,10 @@ Output as JSON array:
         temperature: 0.4,
       });
 
-      const match = response.content.match(/\[[\s\S]*\]/);
+      // Extract text content from response
+      const textContent = response.content.find((c) => c.type === 'text');
+      const text = textContent && 'text' in textContent ? textContent.text : '';
+      const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         return JSON.parse(match[0]) as string[];
       }

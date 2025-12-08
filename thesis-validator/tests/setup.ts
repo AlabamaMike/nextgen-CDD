@@ -5,6 +5,10 @@
  */
 
 import { webcrypto } from 'crypto';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 // Polyfill crypto for Node.js environment
 if (typeof globalThis.crypto === 'undefined') {

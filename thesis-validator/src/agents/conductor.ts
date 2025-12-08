@@ -558,7 +558,7 @@ Output as JSON:
   }
 
   /**
-   * Execute Phase 2: Deep dive
+   * Execute Phase 2: Deep dive with ComparablesFinder and ExpertSynthesizer
    */
   private async executePhase2(phase1Result: {
     hypotheses: Array<{ statement: string; priority: number }>;
@@ -571,62 +571,178 @@ Output as JSON:
     contradictions: string[];
     confidence: number;
   }> {
-    // TODO: Implement comparables finder and expert synthesizer
-    // For now, just return phase 1 results with slight confidence boost
+    if (!this.context) {
+      return phase1Result;
+    }
+
+    let confidenceBoost = 0;
+    const additionalEvidence: Array<{ type: string; content: string; confidence: number }> = [];
+
+    // Try ComparablesFinder
+    const comparablesExecutor = this.agentRegistry.get('comparables_finder');
+    if (comparablesExecutor) {
+      try {
+        const thesis = phase1Result.hypotheses[0]?.statement || '';
+        const result = await comparablesExecutor({ thesis }, this.context);
+        if (result.success && result.data) {
+          const data = result.data as any;
+          if (data.comparableDeals?.length > 0) {
+            confidenceBoost += 5;
+            for (const deal of data.comparableDeals.slice(0, 3)) {
+              additionalEvidence.push({
+                type: 'supporting',
+                content: `Comparable deal: ${deal.company_name} (${deal.outcome})`,
+                confidence: deal.relevance_score ?? 0.6,
+              });
+            }
+          }
+          if (data.applicableFrameworks?.length > 0) {
+            confidenceBoost += 3;
+          }
+        }
+      } catch (error) {
+        console.error('[Conductor] ComparablesFinder failed:', error);
+      }
+    }
+
+    // Try ExpertSynthesizer (if we have expert evidence)
+    const expertEvidence = phase1Result.evidence.filter(e =>
+      e.content.toLowerCase().includes('expert') ||
+      e.content.toLowerCase().includes('interview')
+    );
+
+    if (expertEvidence.length > 0) {
+      const expertExecutor = this.agentRegistry.get('expert_synthesizer');
+      if (expertExecutor) {
+        try {
+          const result = await expertExecutor(
+            { transcripts: expertEvidence.map(e => e.content) },
+            this.context
+          );
+          if (result.success && result.data) {
+            confidenceBoost += 5;
+          }
+        } catch (error) {
+          console.error('[Conductor] ExpertSynthesizer failed:', error);
+        }
+      }
+    }
+
     return {
-      ...phase1Result,
-      confidence: Math.min(100, phase1Result.confidence + 10),
+      hypotheses: phase1Result.hypotheses,
+      evidence: [...phase1Result.evidence, ...additionalEvidence],
+      contradictions: phase1Result.contradictions,
+      confidence: Math.min(100, phase1Result.confidence + confidenceBoost),
     };
   }
 
   /**
-   * Generate hypotheses from thesis
+   * Generate hypotheses from thesis using HypothesisBuilder agent
    */
   private async generateHypotheses(
     thesis: string,
     maxCount: number
   ): Promise<Array<{ statement: string; priority: number }>> {
-    // TODO: Call HypothesisBuilder agent
-    // For now, return mock hypotheses
-    return [
-      { statement: `Market assumption: ${thesis}`, priority: 5 },
-      { statement: 'Financial viability needs validation', priority: 4 },
-      { statement: 'Competitive positioning unclear', priority: 3 },
-    ].slice(0, maxCount);
+    if (!this.context) {
+      return [];
+    }
+
+    const executor = this.agentRegistry.get('hypothesis_builder');
+    if (!executor) {
+      console.warn('[Conductor] HypothesisBuilder agent not registered, using fallback');
+      return [
+        { statement: `Market assumption: ${thesis}`, priority: 5 },
+        { statement: 'Financial viability needs validation', priority: 4 },
+      ].slice(0, maxCount);
+    }
+
+    try {
+      const result = await executor({ thesis }, this.context);
+      if (result.success && result.data) {
+        const hypotheses = (result.data as any).hypotheses || [];
+        return hypotheses.slice(0, maxCount).map((h: any, i: number) => ({
+          statement: h.content || h.statement,
+          priority: 5 - i,
+        }));
+      }
+    } catch (error) {
+      console.error('[Conductor] HypothesisBuilder failed:', error);
+    }
+
+    return [];
   }
 
   /**
-   * Gather evidence for hypotheses
+   * Gather evidence for hypotheses using EvidenceGatherer agent
    */
   private async gatherEvidence(
     hypotheses: Array<{ statement: string; priority: number }>
   ): Promise<Array<{ type: string; content: string; confidence: number }>> {
-    // TODO: Call EvidenceGatherer agent
-    // For now, return mock evidence
-    return hypotheses.flatMap((h) => [
-      {
-        type: 'supporting',
-        content: `Evidence supports: ${h.statement}`,
-        confidence: 0.7,
-      },
-      {
-        type: 'contradicting',
-        content: `Counter-evidence for: ${h.statement}`,
-        confidence: 0.5,
-      },
-    ]);
+    if (!this.context) {
+      return [];
+    }
+
+    const executor = this.agentRegistry.get('evidence_gatherer');
+    if (!executor) {
+      console.warn('[Conductor] EvidenceGatherer agent not registered, using fallback');
+      return hypotheses.flatMap((h) => [
+        { type: 'supporting', content: `Evidence supports: ${h.statement}`, confidence: 0.7 },
+      ]);
+    }
+
+    const allEvidence: Array<{ type: string; content: string; confidence: number }> = [];
+
+    for (const hypothesis of hypotheses) {
+      try {
+        const result = await executor(
+          { query: hypothesis.statement, maxResults: 5 },
+          this.context
+        );
+        if (result.success && result.data) {
+          const evidence = (result.data as any).evidence || [];
+          for (const e of evidence) {
+            allEvidence.push({
+              type: e.sentiment || 'neutral',
+              content: e.content || e.summary,
+              confidence: e.credibility ?? 0.5,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[Conductor] EvidenceGatherer failed for hypothesis:', error);
+      }
+    }
+
+    return allEvidence;
   }
 
   /**
-   * Hunt contradictions in evidence
+   * Hunt contradictions in evidence using ContradictionHunter agent
    */
   private async huntContradictions(
     evidence: Array<{ type: string; content: string; confidence: number }>
   ): Promise<string[]> {
-    // TODO: Call ContradictionHunter agent
-    // For now, return mock contradictions
-    const contradictingEvidence = evidence.filter(e => e.type === 'contradicting');
-    return contradictingEvidence.map(e => `Contradiction found: ${e.content}`);
+    if (!this.context) {
+      return [];
+    }
+
+    const executor = this.agentRegistry.get('contradiction_hunter');
+    if (!executor) {
+      console.warn('[Conductor] ContradictionHunter agent not registered, using fallback');
+      return evidence.filter(e => e.type === 'contradicting').map(e => e.content);
+    }
+
+    try {
+      const result = await executor({ intensity: 'moderate' }, this.context);
+      if (result.success && result.data) {
+        const contradictions = (result.data as any).contradictions || [];
+        return contradictions.map((c: any) => c.contradiction?.explanation || c.description || '');
+      }
+    } catch (error) {
+      console.error('[Conductor] ContradictionHunter failed:', error);
+    }
+
+    return [];
   }
 
   /**

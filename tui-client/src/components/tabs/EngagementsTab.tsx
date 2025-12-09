@@ -53,7 +53,59 @@ function formatStatus(status: Engagement['status']): string {
   }
 }
 
-type ViewMode = 'list' | 'detail' | 'create' | 'research';
+type ViewMode = 'list' | 'detail' | 'create' | 'research' | 'confirm_delete';
+
+interface DeleteConfirmationProps {
+  engagementName: string;
+  targetName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}
+
+function DeleteConfirmation({
+  engagementName,
+  targetName,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: DeleteConfirmationProps): React.ReactElement {
+  useInput((input, key) => {
+    if (isDeleting) return;
+
+    if (input === 'y' || input === 'Y') {
+      onConfirm();
+    }
+    if (input === 'n' || input === 'N' || key.escape) {
+      onCancel();
+    }
+  });
+
+  return (
+    <Box flexDirection="column" paddingY={1}>
+      <Box borderStyle="double" borderColor="red" paddingX={2} paddingY={1} flexDirection="column">
+        <Text bold color="red">Delete Engagement</Text>
+        <Box marginTop={1}>
+          <Text>Are you sure you want to delete this engagement?</Text>
+        </Box>
+        <Box marginTop={1} flexDirection="column">
+          <Text>Name: <Text bold>{engagementName}</Text></Text>
+          <Text>Target: <Text color="blue">{targetName}</Text></Text>
+        </Box>
+        <Box marginTop={1}>
+          <Text color="yellow">This action cannot be undone.</Text>
+        </Box>
+        <Box marginTop={2}>
+          {isDeleting ? (
+            <Text color="yellow">Deleting...</Text>
+          ) : (
+            <Text>Press <Text bold color="green">[Y]</Text> to confirm or <Text bold color="red">[N]</Text> to cancel</Text>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
 
 export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): React.ReactElement {
   const { engagements, loading, error, refresh } = useEngagements(serverUrl, authToken);
@@ -107,6 +159,35 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
     await refresh();
   };
 
+  // Handle delete confirmation
+  const handleDeleteEngagement = async () => {
+    const engagement = engagements[selectedIndex];
+    if (!engagement) return;
+
+    try {
+      setIsSubmitting(true);
+      await apiClient.deleteEngagement(engagement.id);
+      setMessage(`Successfully deleted engagement: ${engagement.name}`);
+      setViewMode('list');
+      // Adjust selection if we deleted the last item
+      if (selectedIndex >= engagements.length - 1 && selectedIndex > 0) {
+        setSelectedIndex(selectedIndex - 1);
+      }
+      await refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete engagement';
+      setMessage(`Error: ${errorMessage}`);
+      setViewMode('list');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setViewMode('list');
+    setMessage('');
+  };
+
   // Handle keyboard input
   useInput((input, key) => {
     if (loading || error || viewMode !== 'list') return;
@@ -133,7 +214,8 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
     }
     if (input === 'd' || input === 'D') {
       if (engagements.length > 0) {
-        setMessage(`Delete: ${engagements[selectedIndex]?.name} - Feature coming soon!`);
+        setViewMode('confirm_delete');
+        setMessage('');
       }
     }
     if (key.return && engagements.length > 0) {
@@ -206,6 +288,20 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
         authToken={authToken}
         onBack={handleBackToList}
         onComplete={handleResearchComplete}
+      />
+    );
+  }
+
+  // Show delete confirmation dialog
+  if (viewMode === 'confirm_delete' && engagements[selectedIndex]) {
+    const engagementToDelete = engagements[selectedIndex];
+    return (
+      <DeleteConfirmation
+        engagementName={engagementToDelete.name}
+        targetName={engagementToDelete.target.name}
+        onConfirm={handleDeleteEngagement}
+        onCancel={handleCancelDelete}
+        isDeleting={isSubmitting}
       />
     );
   }

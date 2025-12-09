@@ -62,6 +62,10 @@ function dtoToApiEngagement(dto: EngagementDTO): Engagement & { target: { name: 
       key_value_drivers: [],
       key_risks: [],
     } : undefined,
+    thesis: dto.thesis ? {
+      statement: dto.thesis.statement,
+      submitted_at: dto.thesis.submitted_at,
+    } : undefined,
     team: [],
     config: {
       enable_real_time_support: true,

@@ -128,6 +128,15 @@ export const InvestmentThesisSchema = z.object({
 export type InvestmentThesis = z.infer<typeof InvestmentThesisSchema>;
 
 /**
+ * Thesis submission data (simpler format for TUI/frontend)
+ */
+export const ThesisSubmissionSchema = z.object({
+  statement: z.string(),
+  submitted_at: z.number(),
+});
+export type ThesisSubmission = z.infer<typeof ThesisSubmissionSchema>;
+
+/**
  * Full engagement model
  */
 export const EngagementSchema = z.object({
@@ -138,6 +147,7 @@ export const EngagementSchema = z.object({
   status: EngagementStatusSchema,
   target_company: TargetCompanySchema,
   investment_thesis: InvestmentThesisSchema.optional(),
+  thesis: ThesisSubmissionSchema.optional(), // Simpler thesis format for TUI compatibility
   team: z.array(TeamMemberSchema),
   config: EngagementConfigSchema,
   retention_policy: RetentionPolicySchema,

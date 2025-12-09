@@ -141,9 +141,11 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
     setMessage('');
   };
 
-  const handleBackToList = () => {
+  const handleBackToList = async () => {
     setViewMode('list');
     setMessage('');
+    // Refresh engagements in case thesis was submitted in research view
+    await refresh();
   };
 
   const handleStartResearch = () => {

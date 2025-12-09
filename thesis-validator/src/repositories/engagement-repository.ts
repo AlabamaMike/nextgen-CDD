@@ -7,11 +7,14 @@ import { getPool } from '../db/index.js';
 export interface EngagementRow {
   id: string;
   target_company: string;
+  target: Record<string, unknown>;
+  deal_type: string;
   sector: string;
   description: string | null;
   deal_size: number | null;
   lead_partner: string | null;
   status: string;
+  thesis: Record<string, unknown> | null;
   config: Record<string, unknown>;
   created_by: string | null;
   created_at: Date;
@@ -55,9 +58,7 @@ export class EngagementRepository {
     const pool = getPool();
     const now = new Date();
 
-    const config: Record<string, unknown> = {
-      deal_type: params.dealType,
-    };
+    const config: Record<string, unknown> = {};
 
     if (params.thesis) {
       config.thesis = {
@@ -66,13 +67,22 @@ export class EngagementRepository {
       };
     }
 
+    // Build target JSONB object matching schema
+    const target = {
+      name: params.targetCompanyName,
+      sector: params.sector,
+      ...(params.description ? { description: params.description } : {}),
+    };
+
     const { rows } = await pool.query(
-      `INSERT INTO engagements (id, target_company, sector, description, deal_size, lead_partner, status, config, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+      `INSERT INTO engagements (id, target_company, target, deal_type, sector, description, deal_size, lead_partner, status, config, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
        RETURNING *`,
       [
         params.id,
         params.targetCompanyName,
+        JSON.stringify(target),
+        params.dealType,
         params.sector,
         params.description ?? null,
         params.dealSize ?? null,
@@ -234,16 +244,18 @@ export class EngagementRepository {
 
   private mapRowToDTO(row: EngagementRow): EngagementDTO {
     const config = typeof row.config === 'string' ? JSON.parse(row.config) : (row.config ?? {});
+    const target = typeof row.target === 'string' ? JSON.parse(row.target) : (row.target ?? {});
+    const thesis = typeof row.thesis === 'string' ? JSON.parse(row.thesis) : row.thesis;
 
     const dto: EngagementDTO = {
       id: row.id,
       name: row.target_company, // Use target_company as name for compatibility
       target_company: {
-        name: row.target_company,
-        sector: row.sector,
-        ...(row.description ? { description: row.description } : {}),
+        name: target.name ?? row.target_company,
+        sector: target.sector ?? row.sector,
+        ...(target.description || row.description ? { description: target.description ?? row.description } : {}),
       },
-      deal_type: config.deal_type ?? 'buyout',
+      deal_type: row.deal_type ?? 'buyout',
       status: row.status,
       created_by: row.created_by ?? 'unknown',
       created_at: new Date(row.created_at).getTime(),
@@ -251,8 +263,8 @@ export class EngagementRepository {
       config,
     };
 
-    if (config.thesis) {
-      dto.thesis = config.thesis;
+    if (thesis) {
+      dto.thesis = thesis;
     }
 
     return dto;

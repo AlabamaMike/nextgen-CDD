@@ -200,15 +200,14 @@ export class EngagementRepository {
       updateFields.push(`status = $${paramIndex++}`);
       values.push(updates.status);
     }
-    if (updates.thesis !== undefined || updates.config !== undefined) {
+    if (updates.thesis !== undefined) {
+      // Update the thesis column directly
+      updateFields.push(`thesis = $${paramIndex++}`);
+      values.push(JSON.stringify(updates.thesis));
+    }
+    if (updates.config !== undefined) {
       // Merge config updates
-      const newConfig = { ...current.config };
-      if (updates.thesis) {
-        newConfig.thesis = updates.thesis;
-      }
-      if (updates.config) {
-        Object.assign(newConfig, updates.config);
-      }
+      const newConfig = { ...current.config, ...updates.config };
       updateFields.push(`config = $${paramIndex++}`);
       values.push(JSON.stringify(newConfig));
     }

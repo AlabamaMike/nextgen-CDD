@@ -14,16 +14,11 @@
 import type { AgentContext } from '../agents/base-agent.js';
 import {
   createAgentSwarm,
-  type ConductorInput,
-  type HypothesisBuilderInput,
-  type EvidenceGathererInput,
-  type ContradictionHunterInput,
-  type ComparablesFinderInput,
 } from '../agents/index.js';
 import { createDealMemory, type DealMemory } from '../memory/deal-memory.js';
 import { getInstitutionalMemory } from '../memory/institutional-memory.js';
 import { getMarketIntelligence } from '../memory/market-intelligence.js';
-import type { Engagement, EngagementEvent, InvestmentThesis, Sector, DealType } from '../models/index.js';
+import type { Engagement, EngagementEvent, InvestmentThesis } from '../models/index.js';
 import { createEvent } from '../models/events.js';
 import { MetricsRepository } from '../repositories/index.js';
 
@@ -101,7 +96,6 @@ export interface ResearchWorkflowOutput {
 export class ResearchWorkflow {
   private config: ResearchWorkflowConfig;
   private dealMemory: DealMemory | null = null;
-  private agentContext: AgentContext | null = null;
 
   constructor(config?: Partial<ResearchWorkflowConfig>) {
     this.config = { ...defaultConfig, ...config };
@@ -117,14 +111,16 @@ export class ResearchWorkflow {
     // Initialize deal memory
     this.dealMemory = await createDealMemory(input.engagement.id);
 
-    // Create agent context
-    this.agentContext = {
+    // Create agent context - conditionally include optional properties
+    const baseContext: AgentContext = {
       engagementId: input.engagement.id,
       dealMemory: this.dealMemory,
       institutionalMemory: getInstitutionalMemory(),
       marketIntelligence: getMarketIntelligence(),
-      onEvent: input.onEvent,
     };
+    if (input.onEvent) {
+      baseContext.onEvent = input.onEvent;
+    }
 
     // Emit workflow started
     this.emitEvent(input, createEvent(
@@ -143,7 +139,7 @@ export class ResearchWorkflow {
         { phase: 'thesis_structuring', progress: 0.1 }
       ));
 
-      agents.hypothesisBuilder.setContext(this.agentContext);
+      agents.hypothesisBuilder.setContext(baseContext);
       const hypothesisResult = await agents.hypothesisBuilder.execute({
         thesis: input.thesis.summary,
         context: {
@@ -170,16 +166,19 @@ export class ResearchWorkflow {
           { phase: 'comparables_search', progress: 0.2 }
         ));
 
-        agents.comparablesFinder.setContext(this.agentContext);
+        agents.comparablesFinder.setContext(baseContext);
+        const targetCompanyInfo: { name: string; sector: typeof input.engagement.target_company.sector; description?: string } = {
+          name: input.engagement.target_company.name,
+          sector: input.engagement.target_company.sector,
+        };
+        if (input.engagement.target_company.description) {
+          targetCompanyInfo.description = input.engagement.target_company.description;
+        }
         comparablesResult = await agents.comparablesFinder.execute({
           thesis: input.thesis.summary,
           sector: input.engagement.target_company.sector,
           dealType: input.engagement.deal_type,
-          targetCompany: {
-            name: input.engagement.target_company.name,
-            description: input.engagement.target_company.description,
-            sector: input.engagement.target_company.sector,
-          },
+          targetCompany: targetCompanyInfo,
         });
       }
 
@@ -191,7 +190,7 @@ export class ResearchWorkflow {
       ));
 
       const evidenceResults: any[] = [];
-      agents.evidenceGatherer.setContext(this.agentContext);
+      agents.evidenceGatherer.setContext(baseContext);
 
       // Gather evidence for key hypotheses
       const keyHypotheses = hypotheses.filter(
@@ -219,7 +218,7 @@ export class ResearchWorkflow {
           { phase: 'contradiction_analysis', progress: 0.7 }
         ));
 
-        agents.contradictionHunter.setContext(this.agentContext);
+        agents.contradictionHunter.setContext(baseContext);
         contradictionResult = await agents.contradictionHunter.execute({
           hypotheses,
           intensity: config.contradictionIntensity,

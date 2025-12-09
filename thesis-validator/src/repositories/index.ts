@@ -28,3 +28,9 @@ export type {
   StressTestStatus,
   UpdateStressTestParams,
 } from './stress-test-repository.js';
+export { EngagementRepository } from './engagement-repository.js';
+export type {
+  CreateEngagementParams,
+  EngagementDTO,
+  EngagementRow,
+} from './engagement-repository.js';

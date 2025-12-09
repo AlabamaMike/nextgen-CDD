@@ -10,6 +10,28 @@ import type {
   HealthStatus,
   SystemMetrics,
   APIError,
+  HypothesisData,
+  CausalEdge,
+  CreateHypothesisRequest,
+  UpdateHypothesisRequest,
+  CreateEdgeRequest,
+  HypothesisTreeResponse,
+  EvidenceData,
+  EvidenceFilters,
+  CreateEvidenceRequest,
+  UpdateEvidenceRequest,
+  EvidenceStats,
+  ContradictionData,
+  ContradictionFilters,
+  ContradictionStats,
+  CreateContradictionRequest,
+  ResolveContradictionRequest,
+  StressTestData,
+  StressTestStats,
+  StartStressTestRequest,
+  ResearchQualityMetrics,
+  MetricData,
+  MetricType,
 } from '../types/api.js';
 
 export class ThesisValidatorClient {
@@ -187,5 +209,377 @@ export class ThesisValidatorClient {
       return `${url}?token=${token}`;
     }
     return url;
+  }
+
+  // ============== Hypothesis Methods ==============
+
+  /**
+   * Get all hypotheses for an engagement (with causal edges)
+   */
+  async getHypotheses(engagementId: string): Promise<HypothesisTreeResponse> {
+    const response = await this.http.get<HypothesisTreeResponse>(
+      `/api/v1/engagements/${engagementId}/hypotheses`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get a single hypothesis
+   */
+  async getHypothesis(engagementId: string, hypothesisId: string): Promise<HypothesisData> {
+    const response = await this.http.get<{ hypothesis: HypothesisData }>(
+      `/api/v1/engagements/${engagementId}/hypotheses/${hypothesisId}`
+    );
+    return response.data.hypothesis;
+  }
+
+  /**
+   * Create a new hypothesis
+   */
+  async createHypothesis(engagementId: string, data: CreateHypothesisRequest): Promise<HypothesisData> {
+    const response = await this.http.post<{ hypothesis: HypothesisData }>(
+      `/api/v1/engagements/${engagementId}/hypotheses`,
+      data
+    );
+    return response.data.hypothesis;
+  }
+
+  /**
+   * Update a hypothesis
+   */
+  async updateHypothesis(
+    engagementId: string,
+    hypothesisId: string,
+    data: UpdateHypothesisRequest
+  ): Promise<HypothesisData> {
+    const response = await this.http.patch<{ hypothesis: HypothesisData }>(
+      `/api/v1/engagements/${engagementId}/hypotheses/${hypothesisId}`,
+      data
+    );
+    return response.data.hypothesis;
+  }
+
+  /**
+   * Delete a hypothesis
+   */
+  async deleteHypothesis(engagementId: string, hypothesisId: string): Promise<void> {
+    await this.http.delete(`/api/v1/engagements/${engagementId}/hypotheses/${hypothesisId}`);
+  }
+
+  /**
+   * Create a causal edge between hypotheses
+   */
+  async createHypothesisEdge(
+    engagementId: string,
+    sourceHypothesisId: string,
+    data: CreateEdgeRequest
+  ): Promise<CausalEdge> {
+    const response = await this.http.post<{ edge: CausalEdge }>(
+      `/api/v1/engagements/${engagementId}/hypotheses/${sourceHypothesisId}/edges`,
+      data
+    );
+    return response.data.edge;
+  }
+
+  /**
+   * Delete a causal edge
+   */
+  async deleteHypothesisEdge(engagementId: string, edgeId: string): Promise<void> {
+    await this.http.delete(`/api/v1/engagements/${engagementId}/hypothesis-edges/${edgeId}`);
+  }
+
+  // ============== Evidence Methods ==============
+
+  /**
+   * Get evidence for an engagement
+   */
+  async getEvidence(engagementId: string, filters?: EvidenceFilters): Promise<EvidenceData[]> {
+    const response = await this.http.get<{ evidence: EvidenceData[] }>(
+      `/api/v1/engagements/${engagementId}/evidence`,
+      { params: filters }
+    );
+    return response.data.evidence;
+  }
+
+  /**
+   * Get evidence statistics
+   */
+  async getEvidenceStats(engagementId: string): Promise<EvidenceStats> {
+    const response = await this.http.get<{ stats: EvidenceStats }>(
+      `/api/v1/engagements/${engagementId}/evidence/stats`
+    );
+    return response.data.stats;
+  }
+
+  /**
+   * Get a single evidence item
+   */
+  async getEvidenceById(engagementId: string, evidenceId: string): Promise<EvidenceData> {
+    const response = await this.http.get<{ evidence: EvidenceData }>(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}`
+    );
+    return response.data.evidence;
+  }
+
+  /**
+   * Create evidence manually
+   */
+  async createEvidence(engagementId: string, data: CreateEvidenceRequest): Promise<EvidenceData> {
+    const response = await this.http.post<{ evidence: EvidenceData }>(
+      `/api/v1/engagements/${engagementId}/evidence`,
+      data
+    );
+    return response.data.evidence;
+  }
+
+  /**
+   * Update evidence
+   */
+  async updateEvidence(
+    engagementId: string,
+    evidenceId: string,
+    data: UpdateEvidenceRequest
+  ): Promise<EvidenceData> {
+    const response = await this.http.patch<{ evidence: EvidenceData }>(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}`,
+      data
+    );
+    return response.data.evidence;
+  }
+
+  /**
+   * Delete evidence
+   */
+  async deleteEvidence(engagementId: string, evidenceId: string): Promise<void> {
+    await this.http.delete(`/api/v1/engagements/${engagementId}/evidence/${evidenceId}`);
+  }
+
+  /**
+   * Link evidence to hypothesis
+   */
+  async linkEvidenceToHypothesis(
+    engagementId: string,
+    evidenceId: string,
+    hypothesisId: string,
+    relevanceScore?: number
+  ): Promise<void> {
+    await this.http.post(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}/hypotheses`,
+      { hypothesisId, relevanceScore }
+    );
+  }
+
+  /**
+   * Unlink evidence from hypothesis
+   */
+  async unlinkEvidenceFromHypothesis(
+    engagementId: string,
+    evidenceId: string,
+    hypothesisId: string
+  ): Promise<void> {
+    await this.http.delete(
+      `/api/v1/engagements/${engagementId}/evidence/${evidenceId}/hypotheses/${hypothesisId}`
+    );
+  }
+
+  // ============== Contradiction Methods ==============
+
+  /**
+   * Get contradictions for an engagement
+   */
+  async getContradictions(
+    engagementId: string,
+    filters?: ContradictionFilters
+  ): Promise<ContradictionData[]> {
+    const response = await this.http.get<{ contradictions: ContradictionData[] }>(
+      `/api/v1/engagements/${engagementId}/contradictions`,
+      { params: filters }
+    );
+    return response.data.contradictions;
+  }
+
+  /**
+   * Get contradiction statistics
+   */
+  async getContradictionStats(engagementId: string): Promise<ContradictionStats> {
+    const response = await this.http.get<{ stats: ContradictionStats }>(
+      `/api/v1/engagements/${engagementId}/contradictions/stats`
+    );
+    return response.data.stats;
+  }
+
+  /**
+   * Get a single contradiction
+   */
+  async getContradiction(
+    engagementId: string,
+    contradictionId: string
+  ): Promise<ContradictionData> {
+    const response = await this.http.get<{ contradiction: ContradictionData }>(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}`
+    );
+    return response.data.contradiction;
+  }
+
+  /**
+   * Create a contradiction manually
+   */
+  async createContradiction(
+    engagementId: string,
+    data: CreateContradictionRequest
+  ): Promise<ContradictionData> {
+    const response = await this.http.post<{ contradiction: ContradictionData }>(
+      `/api/v1/engagements/${engagementId}/contradictions`,
+      data
+    );
+    return response.data.contradiction;
+  }
+
+  /**
+   * Resolve a contradiction
+   */
+  async resolveContradiction(
+    engagementId: string,
+    contradictionId: string,
+    data: ResolveContradictionRequest
+  ): Promise<ContradictionData> {
+    const response = await this.http.post<{ contradiction: ContradictionData }>(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}/resolve`,
+      data
+    );
+    return response.data.contradiction;
+  }
+
+  /**
+   * Mark contradiction as critical
+   */
+  async markContradictionCritical(
+    engagementId: string,
+    contradictionId: string
+  ): Promise<ContradictionData> {
+    const response = await this.http.post<{ contradiction: ContradictionData }>(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}/critical`
+    );
+    return response.data.contradiction;
+  }
+
+  /**
+   * Delete a contradiction
+   */
+  async deleteContradiction(engagementId: string, contradictionId: string): Promise<void> {
+    await this.http.delete(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}`
+    );
+  }
+
+  // ============== Stress Test Methods ==============
+
+  /**
+   * Get stress tests for an engagement
+   */
+  async getStressTests(
+    engagementId: string,
+    filters?: { status?: string; limit?: number }
+  ): Promise<StressTestData[]> {
+    const response = await this.http.get<{ stressTests: StressTestData[] }>(
+      `/api/v1/engagements/${engagementId}/stress-tests`,
+      { params: filters }
+    );
+    return response.data.stressTests;
+  }
+
+  /**
+   * Get stress test statistics
+   */
+  async getStressTestStats(engagementId: string): Promise<StressTestStats> {
+    const response = await this.http.get<{ stats: StressTestStats }>(
+      `/api/v1/engagements/${engagementId}/stress-tests/stats`
+    );
+    return response.data.stats;
+  }
+
+  /**
+   * Get a single stress test
+   */
+  async getStressTest(
+    engagementId: string,
+    stressTestId: string
+  ): Promise<StressTestData> {
+    const response = await this.http.get<{ stressTest: StressTestData }>(
+      `/api/v1/engagements/${engagementId}/stress-tests/${stressTestId}`
+    );
+    return response.data.stressTest;
+  }
+
+  /**
+   * Start a new stress test
+   */
+  async startStressTest(
+    engagementId: string,
+    data?: StartStressTestRequest
+  ): Promise<StressTestData> {
+    const response = await this.http.post<{ stressTest: StressTestData }>(
+      `/api/v1/engagements/${engagementId}/stress-tests`,
+      data ?? { intensity: 'moderate' }
+    );
+    return response.data.stressTest;
+  }
+
+  /**
+   * Delete a stress test
+   */
+  async deleteStressTest(engagementId: string, stressTestId: string): Promise<void> {
+    await this.http.delete(
+      `/api/v1/engagements/${engagementId}/stress-tests/${stressTestId}`
+    );
+  }
+
+  // ============== Metrics Methods ==============
+
+  /**
+   * Get current research quality metrics
+   */
+  async getResearchMetrics(engagementId: string): Promise<ResearchQualityMetrics> {
+    const response = await this.http.get<{ metrics: ResearchQualityMetrics }>(
+      `/api/v1/engagements/${engagementId}/metrics`
+    );
+    return response.data.metrics;
+  }
+
+  /**
+   * Get metric history for a specific type
+   */
+  async getMetricHistory(
+    engagementId: string,
+    metricType: MetricType,
+    limit = 50
+  ): Promise<MetricData[]> {
+    const response = await this.http.get<{ history: MetricData[] }>(
+      `/api/v1/engagements/${engagementId}/metrics/history`,
+      { params: { metric_type: metricType, limit } }
+    );
+    return response.data.history ?? [];
+  }
+
+  /**
+   * Get all latest metrics
+   */
+  async getAllLatestMetrics(
+    engagementId: string
+  ): Promise<Record<MetricType, MetricData | null>> {
+    const response = await this.http.get<{ latest: Record<MetricType, MetricData | null> }>(
+      `/api/v1/engagements/${engagementId}/metrics/history`
+    );
+    return response.data.latest ?? ({} as Record<MetricType, MetricData | null>);
+  }
+
+  /**
+   * Calculate and record metrics
+   */
+  async calculateMetrics(engagementId: string): Promise<ResearchQualityMetrics> {
+    const response = await this.http.post<{ metrics: ResearchQualityMetrics }>(
+      `/api/v1/engagements/${engagementId}/metrics/calculate`
+    );
+    return response.data.metrics;
   }
 }

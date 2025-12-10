@@ -586,13 +586,20 @@ async function executeResearchWorkflowAsync(
     job.completedAt = Date.now();
     job.result = result;
 
-    // Emit completion event
+    // Note: workflow.completed event is emitted by research-workflow.ts
+    // We emit a final job_complete event with the result summary
     onEvent({
       id: crypto.randomUUID(),
-      type: 'workflow.completed',
+      type: 'research.completed',
       timestamp: Date.now(),
       engagement_id: engagement.id,
-      data: { workflow_type: 'research', progress: 1 },
+      data: {
+        workflow_type: 'research',
+        progress: 1,
+        evidence_count: result?.evidence?.totalCount ?? 0,
+        hypothesis_count: result?.hypothesisTree?.totalHypotheses ?? 0,
+        contradiction_count: result?.contradictions?.totalCount ?? 0,
+      },
     });
 
     // Update engagement status

@@ -74,12 +74,13 @@ export function ResearchProgressDisplay({
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate start time from first progress event or fallback to now
+  const firstEventTimestamp = progressEvents[0]?.timestamp;
   const startTime = useMemo(() => {
-    if (progressEvents.length > 0) {
-      return progressEvents[0]!.timestamp;
+    if (firstEventTimestamp !== undefined) {
+      return firstEventTimestamp;
     }
     return Date.now();
-  }, [progressEvents.length > 0 ? progressEvents[0]?.timestamp : null]);
+  }, [firstEventTimestamp]);
 
   // Derive state from progress events
   const { currentPhase, phaseOrder, progress, milestones, currentAction } = useMemo(() => {
@@ -174,6 +175,8 @@ export function ResearchProgressDisplay({
     ? '✓'
     : status === 'failed'
     ? '✗'
+    : status === 'partial'
+    ? '◐'
     : '○';
 
   const statusColor = status === 'running'
@@ -182,6 +185,8 @@ export function ResearchProgressDisplay({
     ? 'green'
     : status === 'failed'
     ? 'red'
+    : status === 'partial'
+    ? 'yellow'
     : 'gray';
 
   return (

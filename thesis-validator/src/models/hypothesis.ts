@@ -41,6 +41,10 @@ export const HypothesisMetadataSchema = z.object({
   updated_at: z.number(), // Unix timestamp
   created_by: z.string(), // Agent or user ID
   source_refs: z.array(z.string()), // Evidence source IDs
+  // Optional scoring metadata from decomposition
+  importance: z.number().min(0).max(1).optional(), // For sub-theses: how critical to overall thesis
+  testability: z.number().min(0).max(1).optional(), // For assumptions: how easily can we test this
+  risk_level: z.enum(['low', 'medium', 'high']).optional(), // For assumptions: impact if wrong
 });
 export type HypothesisMetadata = z.infer<typeof HypothesisMetadataSchema>;
 

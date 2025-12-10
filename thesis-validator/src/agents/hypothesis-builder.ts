@@ -282,35 +282,54 @@ Output as JSON:
     hypotheses.push(rootThesis);
 
     // Create sub-thesis nodes
+    // Use importance as initial confidence - higher importance means more critical to thesis
     for (const subThesis of decomposition.sub_theses) {
+      // Initial confidence based on importance: 0.4-0.6 range to avoid extremes
+      // High importance (0.9) -> 0.45 (needs more validation)
+      // Low importance (0.3) -> 0.55 (less critical, slightly more confident by default)
+      const initialConfidence = 0.5 - (subThesis.importance - 0.5) * 0.2;
       hypotheses.push({
         id: crypto.randomUUID(),
         type: 'sub_thesis',
         content: subThesis.content,
-        confidence: 0.5,
+        confidence: Math.round(initialConfidence * 100) / 100,
         status: 'untested',
         metadata: {
           created_at: now,
           updated_at: now,
           created_by: this.config.id,
           source_refs: [],
+          importance: subThesis.importance,
         },
       });
     }
 
     // Create assumption nodes
+    // Use testability and risk_level to compute initial confidence
     for (const assumption of decomposition.assumptions) {
+      // Risk level affects initial confidence:
+      // - high risk -> 0.35 (needs significant validation)
+      // - medium risk -> 0.45
+      // - low risk -> 0.55 (less risky, slightly more confident)
+      const riskModifier = assumption.risk_level === 'high' ? -0.15
+        : assumption.risk_level === 'medium' ? -0.05
+        : 0.05;
+      // Testability affects confidence: highly testable = easier to validate
+      const testabilityModifier = (assumption.testability - 0.5) * 0.1;
+      const initialConfidence = 0.5 + riskModifier + testabilityModifier;
       hypotheses.push({
         id: crypto.randomUUID(),
         type: 'assumption',
         content: assumption.content,
-        confidence: 0.5,
+        confidence: Math.round(Math.max(0.2, Math.min(0.7, initialConfidence)) * 100) / 100,
         status: 'untested',
         metadata: {
           created_at: now,
           updated_at: now,
           created_by: this.config.id,
           source_refs: [],
+          testability: assumption.testability,
+          risk_level: assumption.risk_level,
         },
       });
     }

@@ -18,7 +18,8 @@ import {
   executeStressTestWorkflow,
 } from '../../workflows/index.js';
 import { createDealMemory } from '../../memory/index.js';
-import type { HypothesisTree, HypothesisNode } from '../../models/index.js';
+import type { HypothesisTree, HypothesisNode, EngagementEvent, ProgressEvent } from '../../models/index.js';
+import { publishProgressEvent } from '../websocket/research-progress.js';
 
 /**
  * Research job status tracking
@@ -334,6 +335,204 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
 }
 
 /**
+ * Map workflow phase names to TUI-expected phase names
+ *
+ * TUI expects: hypothesis_generation, evidence_gathering, contradiction_detection, report_generation
+ * Workflow emits: thesis_structuring, comparables_search, evidence_gathering, contradiction_analysis, synthesis
+ */
+function mapPhaseToTuiPhase(workflowPhase: string): string {
+  const phaseMap: Record<string, string> = {
+    'initializing': 'hypothesis_generation',
+    'thesis_structuring': 'hypothesis_generation',
+    'comparables_search': 'hypothesis_generation',
+    'evidence_gathering': 'evidence_gathering',
+    'contradiction_analysis': 'contradiction_detection',
+    'synthesis': 'report_generation',
+  };
+  return phaseMap[workflowPhase] ?? workflowPhase;
+}
+
+/**
+ * Get a human-readable message for a phase
+ */
+function getPhaseMessage(phase: string): string {
+  const messages: Record<string, string> = {
+    'hypothesis_generation': 'Building and structuring hypotheses...',
+    'evidence_gathering': 'Gathering evidence from multiple sources...',
+    'contradiction_detection': 'Analyzing for contradictions and risks...',
+    'report_generation': 'Synthesizing findings and generating report...',
+  };
+  return messages[phase] ?? `Processing ${phase}...`;
+}
+
+/**
+ * Convert EngagementEvent to ProgressEvent for WebSocket streaming
+ *
+ * Valid ProgressEventType values:
+ * 'status_update' | 'phase_start' | 'phase_complete' | 'hypothesis_generated' |
+ * 'evidence_found' | 'contradiction_detected' | 'round_complete' | 'job_complete' |
+ * 'completed' | 'error'
+ */
+function convertToProgressEvent(jobId: string, event: EngagementEvent): ProgressEvent {
+  const eventData = event.data as Record<string, unknown>;
+
+  // Map engagement event types to valid progress event types
+  let progressType: ProgressEvent['type'];
+  let outputData = { ...eventData };
+
+  switch (event.type) {
+    case 'workflow.started':
+    case 'research.started':
+      progressType = 'phase_start';
+      break;
+    case 'workflow.completed':
+    case 'research.completed':
+      progressType = 'completed';
+      break;
+    case 'workflow.failed':
+    case 'research.failed':
+      progressType = 'error';
+      break;
+    case 'research.progress': {
+      // research.progress events with a phase should be treated as phase_start
+      const workflowPhase = eventData['phase'];
+      if (typeof workflowPhase === 'string') {
+        progressType = 'phase_start';
+        const tuiPhase = mapPhaseToTuiPhase(workflowPhase);
+        outputData = {
+          ...eventData,
+          phase: tuiPhase,
+          message: getPhaseMessage(tuiPhase),
+        };
+      } else {
+        progressType = 'status_update';
+      }
+      break;
+    }
+    case 'workflow.step_completed':
+      progressType = 'phase_complete';
+      break;
+    case 'agent.status':
+    case 'agent.started':
+    case 'agent.completed':
+      progressType = 'status_update';
+      break;
+    case 'evidence.new':
+      progressType = 'evidence_found';
+      break;
+    case 'hypothesis.created':
+    case 'hypothesis.updated':
+      progressType = 'hypothesis_generated';
+      break;
+    case 'contradiction.found':
+      progressType = 'contradiction_detected';
+      break;
+    default:
+      progressType = 'status_update';
+  }
+
+  return {
+    type: progressType,
+    jobId,
+    timestamp: event.timestamp,
+    data: outputData,
+  };
+}
+
+/**
+ * Create a throttled event handler that limits how often status_update events are sent
+ * Important events (phase_start, completed, error, etc.) are always sent immediately
+ */
+function createThrottledEventHandler(
+  jobId: string,
+  job: ResearchJob,
+  throttleMs: number = 500
+): (event: EngagementEvent) => void {
+  let lastStatusUpdateTime = 0;
+  let pendingStatusUpdate: EngagementEvent | null = null;
+  let pendingTimeout: NodeJS.Timeout | null = null;
+
+  // Event types that should always be sent immediately (not throttled)
+  const importantEventTypes = new Set([
+    'workflow.started',
+    'workflow.completed',
+    'workflow.failed',
+    'research.started',
+    'research.completed',
+    'research.failed',
+    'research.progress', // Phase changes
+    'hypothesis.created',
+    'evidence.new',
+    'contradiction.found',
+  ]);
+
+  const flushPendingUpdate = (): void => {
+    if (pendingStatusUpdate) {
+      const progressEvent = convertToProgressEvent(jobId, pendingStatusUpdate);
+      publishProgressEvent(jobId, progressEvent).catch((err) => {
+        console.error('[Research] Failed to publish progress event:', err);
+      });
+      pendingStatusUpdate = null;
+    }
+    if (pendingTimeout) {
+      clearTimeout(pendingTimeout);
+      pendingTimeout = null;
+    }
+  };
+
+  return (event: EngagementEvent): void => {
+    // Update job progress based on event data
+    const eventData = event.data as Record<string, unknown>;
+    if (typeof eventData['progress'] === 'number') {
+      job.progress = Math.round(eventData['progress'] * 100);
+    }
+
+    const progressEvent = convertToProgressEvent(jobId, event);
+
+    // Important events are sent immediately
+    if (importantEventTypes.has(event.type)) {
+      // Flush any pending status update first
+      flushPendingUpdate();
+      publishProgressEvent(jobId, progressEvent).catch((err) => {
+        console.error('[Research] Failed to publish progress event:', err);
+      });
+      lastStatusUpdateTime = Date.now();
+      return;
+    }
+
+    // For status_update events, apply throttling
+    if (progressEvent.type === 'status_update') {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastStatusUpdateTime;
+
+      if (timeSinceLastUpdate >= throttleMs) {
+        // Enough time has passed, send immediately
+        publishProgressEvent(jobId, progressEvent).catch((err) => {
+          console.error('[Research] Failed to publish progress event:', err);
+        });
+        lastStatusUpdateTime = now;
+        pendingStatusUpdate = null;
+      } else {
+        // Store as pending and schedule a delayed send
+        pendingStatusUpdate = event;
+        if (!pendingTimeout) {
+          pendingTimeout = setTimeout(() => {
+            flushPendingUpdate();
+            lastStatusUpdateTime = Date.now();
+          }, throttleMs - timeSinceLastUpdate);
+        }
+      }
+      return;
+    }
+
+    // Other events pass through
+    publishProgressEvent(jobId, progressEvent).catch((err) => {
+      console.error('[Research] Failed to publish progress event:', err);
+    });
+  };
+}
+
+/**
  * Execute research workflow asynchronously
  */
 async function executeResearchWorkflowAsync(
@@ -345,9 +544,21 @@ async function executeResearchWorkflowAsync(
     include_comparables: boolean;
     max_sources: number;
   },
-  userId: string
+  _userId: string
 ): Promise<void> {
   job.status = 'running';
+
+  // Create throttled onEvent callback (500ms throttle for status updates)
+  const onEvent = createThrottledEventHandler(job.id, job, 500);
+
+  // Emit initial started event
+  onEvent({
+    id: crypto.randomUUID(),
+    type: 'workflow.started',
+    timestamp: Date.now(),
+    engagement_id: engagement.id,
+    data: { workflow_type: 'research', phase: 'initializing', progress: 0 },
+  });
 
   try {
     // Build the thesis object from engagement data
@@ -367,6 +578,7 @@ async function executeResearchWorkflowAsync(
         maxEvidencePerHypothesis: config.max_sources,
         parallelAgents: true,
       },
+      onEvent,
     });
 
     job.status = 'completed';
@@ -374,12 +586,30 @@ async function executeResearchWorkflowAsync(
     job.completedAt = Date.now();
     job.result = result;
 
+    // Emit completion event
+    onEvent({
+      id: crypto.randomUUID(),
+      type: 'workflow.completed',
+      timestamp: Date.now(),
+      engagement_id: engagement.id,
+      data: { workflow_type: 'research', progress: 1 },
+    });
+
     // Update engagement status
     updateEngagement(engagement.id, { status: 'research_complete' });
   } catch (error) {
     job.status = 'failed';
     job.completedAt = Date.now();
     job.error = error instanceof Error ? error.message : 'Unknown error';
+
+    // Emit failure event
+    onEvent({
+      id: crypto.randomUUID(),
+      type: 'workflow.failed',
+      timestamp: Date.now(),
+      engagement_id: engagement.id,
+      data: { workflow_type: 'research', error: job.error },
+    });
 
     updateEngagement(engagement.id, { status: 'research_failed' });
   }

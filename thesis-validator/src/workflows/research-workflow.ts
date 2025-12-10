@@ -133,6 +133,7 @@ export class ResearchWorkflow {
 
     try {
       // Phase 1: Thesis structuring
+      console.log(`[ResearchWorkflow] Starting Phase 1: Thesis structuring for engagement ${input.engagement.id}`);
       this.emitEvent(input, createEvent(
         'research.progress',
         input.engagement.id,
@@ -156,6 +157,7 @@ export class ResearchWorkflow {
 
       const hypotheses = hypothesisResult.data.hypotheses;
       const rootThesisId = hypothesisResult.data.rootThesis.id;
+      console.log(`[ResearchWorkflow] Phase 1 complete: Created ${hypotheses.length} hypotheses`);
 
       // Phase 2: Comparables search (optional)
       let comparablesResult: any = null;
@@ -183,6 +185,7 @@ export class ResearchWorkflow {
       }
 
       // Phase 3: Evidence gathering
+      console.log(`[ResearchWorkflow] Starting Phase 3: Evidence gathering`);
       this.emitEvent(input, createEvent(
         'research.progress',
         input.engagement.id,
@@ -196,8 +199,10 @@ export class ResearchWorkflow {
       const keyHypotheses = hypotheses.filter(
         (h) => h.type === 'thesis' || h.type === 'sub_thesis'
       ).slice(0, 5);
+      console.log(`[ResearchWorkflow] Gathering evidence for ${keyHypotheses.length} key hypotheses`);
 
       for (const hypothesis of keyHypotheses) {
+        console.log(`[ResearchWorkflow] Gathering evidence for hypothesis: "${hypothesis.content.slice(0, 50)}..."`);
         const evidenceResult = await agents.evidenceGatherer.execute({
           query: hypothesis.content,
           hypothesisIds: [hypothesis.id],
@@ -205,11 +210,16 @@ export class ResearchWorkflow {
         });
 
         if (evidenceResult.success && evidenceResult.data) {
+          console.log(`[ResearchWorkflow] Found ${evidenceResult.data.evidence?.length ?? 0} evidence items`);
           evidenceResults.push(evidenceResult.data);
+        } else {
+          console.log(`[ResearchWorkflow] Evidence gathering failed for hypothesis: ${evidenceResult.error}`);
         }
       }
+      console.log(`[ResearchWorkflow] Phase 3 complete: Gathered evidence from ${evidenceResults.length} queries`);
 
       // Phase 4: Contradiction analysis (optional)
+      console.log(`[ResearchWorkflow] Starting Phase 4: Contradiction analysis`);
       let contradictionResult: any = null;
       if (config.enableContradictionAnalysis) {
         this.emitEvent(input, createEvent(
@@ -223,9 +233,11 @@ export class ResearchWorkflow {
           hypotheses,
           intensity: config.contradictionIntensity,
         });
+        console.log(`[ResearchWorkflow] Phase 4 complete: Found ${contradictionResult?.data?.contradictions?.length ?? 0} contradictions`);
       }
 
       // Phase 5: Synthesis
+      console.log(`[ResearchWorkflow] Starting Phase 5: Synthesis`);
       this.emitEvent(input, createEvent(
         'research.progress',
         input.engagement.id,
@@ -258,13 +270,14 @@ export class ResearchWorkflow {
       }
 
       // Emit workflow completed
+      console.log(`[ResearchWorkflow] All phases complete. Preparing final output...`);
       this.emitEvent(input, createEvent(
         'workflow.completed',
         input.engagement.id,
         { workflow_type: 'research' }
       ));
 
-      return {
+      const finalOutput = {
         engagementId: input.engagement.id,
         hypothesisTree: {
           rootThesisId,
@@ -303,6 +316,9 @@ export class ResearchWorkflow {
         recommendations,
         executionTimeMs: Date.now() - startTime,
       };
+
+      console.log(`[ResearchWorkflow] Returning output with ${finalOutput.evidence.totalCount} evidence items, ${finalOutput.contradictions.totalCount} contradictions`);
+      return finalOutput;
     } finally {
       // Cleanup is handled by engagement closeout
     }

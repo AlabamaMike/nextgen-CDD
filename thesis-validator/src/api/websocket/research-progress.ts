@@ -1,9 +1,12 @@
 /**
  * WebSocket Research Progress Handler
  *
- * Real-time progress streaming for research jobs using Redis pub/sub
+ * Real-time progress streaming for research jobs.
+ * Uses in-memory EventEmitter when Redis is not available,
+ * or Redis pub/sub for multi-process setups.
  */
 
+import { EventEmitter } from 'node:events';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from '@fastify/websocket';
 import Redis from 'ioredis';
@@ -22,80 +25,77 @@ interface ProgressConnection {
 
 const progressConnections = new Map<string, ProgressConnection[]>();
 
+// In-memory event emitter for fallback when Redis is unavailable
+const progressEmitter = new EventEmitter();
+progressEmitter.setMaxListeners(100); // Allow many concurrent jobs
+
 // Redis connection for pub/sub
 const REDIS_HOST = process.env['REDIS_HOST'] ?? 'localhost';
 const REDIS_PORT = parseInt(process.env['REDIS_PORT'] ?? '6379', 10);
 const REDIS_PASSWORD = process.env['REDIS_PASSWORD'];
 
-const redisSub = new Redis({
-  host: REDIS_HOST,
-  port: REDIS_PORT,
-  ...(REDIS_PASSWORD ? { password: REDIS_PASSWORD } : {}),
-});
+let redisAvailable = false;
+let redisSub: Redis | null = null;
+let redisPub: Redis | null = null;
 
-const redisPub = new Redis({
-  host: REDIS_HOST,
-  port: REDIS_PORT,
-  ...(REDIS_PASSWORD ? { password: REDIS_PASSWORD } : {}),
-});
-
-/**
- * Publish progress event to Redis channel
- */
-export async function publishProgressEvent(jobId: string, event: ProgressEvent): Promise<void> {
-  const channel = `research:progress:${jobId}`;
-  await redisPub.publish(channel, JSON.stringify(event));
-}
-
-/**
- * Subscribe to progress events for a job
- */
-function subscribeToJob(jobId: string): void {
-  const channel = `research:progress:${jobId}`;
-
-  // Check if already subscribed
-  if (progressConnections.has(jobId)) {
-    return;
-  }
-
-  // Subscribe to Redis channel
-  redisSub.subscribe(channel, (error) => {
-    if (error) {
-      console.error(`[ResearchProgress] Failed to subscribe to ${channel}:`, error);
-    } else {
-      console.log(`[ResearchProgress] Subscribed to ${channel}`);
-    }
-  });
-}
-
-/**
- * Unsubscribe from job progress when no more connections
- */
-function unsubscribeFromJob(jobId: string): void {
-  const channel = `research:progress:${jobId}`;
-
-  if (!progressConnections.has(jobId) || progressConnections.get(jobId)!.length === 0) {
-    redisSub.unsubscribe(channel, (error) => {
-      if (error) {
-        console.error(`[ResearchProgress] Failed to unsubscribe from ${channel}:`, error);
-      } else {
-        console.log(`[ResearchProgress] Unsubscribed from ${channel}`);
-      }
+// Try to connect to Redis, but fallback to in-memory if unavailable
+async function initializeRedis(): Promise<void> {
+  try {
+    redisPub = new Redis({
+      host: REDIS_HOST,
+      port: REDIS_PORT,
+      ...(REDIS_PASSWORD ? { password: REDIS_PASSWORD } : {}),
+      connectTimeout: 3000,
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null, // Don't retry, just fail
     });
+
+    redisSub = new Redis({
+      host: REDIS_HOST,
+      port: REDIS_PORT,
+      ...(REDIS_PASSWORD ? { password: REDIS_PASSWORD } : {}),
+      connectTimeout: 3000,
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
+    });
+
+    // Test connection
+    await redisPub.ping();
+    redisAvailable = true;
+    console.log('[ResearchProgress] Redis connected successfully');
+
+    // Set up Redis message handler
+    redisSub.on('message', handleRedisMessage);
+  } catch (error) {
+    console.log('[ResearchProgress] Redis not available, using in-memory event emitter for progress events');
+    redisAvailable = false;
+    redisPub = null;
+    redisSub = null;
   }
 }
+
+// Initialize Redis on module load (non-blocking)
+initializeRedis().catch(() => {
+  console.log('[ResearchProgress] Redis initialization failed, continuing with in-memory fallback');
+});
 
 /**
  * Handle incoming Redis messages
  */
-redisSub.on('message', (channel: string, message: string) => {
+function handleRedisMessage(channel: string, message: string): void {
   // Extract jobId from channel name (format: research:progress:<jobId>)
   const match = channel.match(/^research:progress:(.+)$/);
   if (!match) return;
 
   const jobId = match[1];
-  const connections = progressConnections.get(jobId) ?? [];
+  broadcastToConnections(jobId, message);
+}
 
+/**
+ * Broadcast message to all WebSocket connections for a job
+ */
+function broadcastToConnections(jobId: string, message: string): void {
+  const connections = progressConnections.get(jobId) ?? [];
   if (connections.length === 0) return;
 
   try {
@@ -114,7 +114,67 @@ redisSub.on('message', (channel: string, message: string) => {
   } catch (error) {
     console.error('[ResearchProgress] Failed to process message:', error);
   }
-});
+}
+
+/**
+ * Publish progress event - uses Redis if available, otherwise in-memory emitter
+ */
+export async function publishProgressEvent(jobId: string, event: ProgressEvent): Promise<void> {
+  const message = JSON.stringify(event);
+
+  console.log(`[ResearchProgress] Publishing event for job ${jobId}: ${event.type}`);
+
+  if (redisAvailable && redisPub) {
+    const channel = `research:progress:${jobId}`;
+    await redisPub.publish(channel, message);
+  } else {
+    // Use in-memory event emitter
+    progressEmitter.emit(`progress:${jobId}`, message);
+  }
+}
+
+/**
+ * Subscribe to progress events for a job
+ */
+function subscribeToJob(jobId: string): void {
+  if (redisAvailable && redisSub) {
+    const channel = `research:progress:${jobId}`;
+    redisSub.subscribe(channel, (error) => {
+      if (error) {
+        console.error(`[ResearchProgress] Failed to subscribe to ${channel}:`, error);
+      } else {
+        console.log(`[ResearchProgress] Subscribed to Redis channel ${channel}`);
+      }
+    });
+  } else {
+    // Use in-memory event emitter
+    const handler = (message: string) => broadcastToConnections(jobId, message);
+    progressEmitter.on(`progress:${jobId}`, handler);
+    console.log(`[ResearchProgress] Subscribed to in-memory events for job ${jobId}`);
+  }
+}
+
+/**
+ * Unsubscribe from job progress when no more connections
+ */
+function unsubscribeFromJob(jobId: string): void {
+  if (!progressConnections.has(jobId) || progressConnections.get(jobId)!.length === 0) {
+    if (redisAvailable && redisSub) {
+      const channel = `research:progress:${jobId}`;
+      redisSub.unsubscribe(channel, (error) => {
+        if (error) {
+          console.error(`[ResearchProgress] Failed to unsubscribe from ${channel}:`, error);
+        } else {
+          console.log(`[ResearchProgress] Unsubscribed from ${channel}`);
+        }
+      });
+    } else {
+      // Remove all listeners for this job
+      progressEmitter.removeAllListeners(`progress:${jobId}`);
+      console.log(`[ResearchProgress] Unsubscribed from in-memory events for job ${jobId}`);
+    }
+  }
+}
 
 /**
  * Register WebSocket route for research progress
@@ -166,10 +226,10 @@ export async function registerResearchProgressWebSocket(fastify: FastifyInstance
       }
       progressConnections.get(jobId)!.push(connection);
 
-      // Subscribe to Redis channel for this job
+      // Subscribe to events for this job
       subscribeToJob(jobId);
 
-      console.log(`[ResearchProgress] Client connected to job ${jobId} (user: ${user.id})`);
+      console.log(`[ResearchProgress] Client connected to job ${jobId} (user: ${user.id}, redis: ${redisAvailable})`);
 
       // Send initial connection confirmation
       socket.send(JSON.stringify({
@@ -177,6 +237,7 @@ export async function registerResearchProgressWebSocket(fastify: FastifyInstance
         payload: {
           jobId,
           timestamp: Date.now(),
+          redis: redisAvailable,
         },
       }));
 
@@ -218,6 +279,7 @@ export async function registerResearchProgressWebSocket(fastify: FastifyInstance
 export function getProgressStats(): {
   totalConnections: number;
   connectionsByJob: Record<string, number>;
+  redisAvailable: boolean;
 } {
   const connectionsByJob: Record<string, number> = {};
   let totalConnections = 0;
@@ -230,6 +292,7 @@ export function getProgressStats(): {
   return {
     totalConnections,
     connectionsByJob,
+    redisAvailable,
   };
 }
 
@@ -261,7 +324,11 @@ export async function closeProgressWebSocket(): Promise<void> {
     closeJobConnections(jobId, 'Server shutting down');
   }
 
-  // Close Redis connections
-  await redisSub.quit();
-  await redisPub.quit();
+  // Close Redis connections if available
+  if (redisSub) {
+    await redisSub.quit();
+  }
+  if (redisPub) {
+    await redisPub.quit();
+  }
 }

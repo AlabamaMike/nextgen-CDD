@@ -148,11 +148,24 @@ For each contradiction found:
           const confidenceDelta = -avgSeverity * 0.2;
           const newConfidence = Math.max(0, Math.min(1, hypothesis.confidence + confidenceDelta));
 
+          const newStatus = hypothesisContradictions.some((c) => c.contradiction.severity > 0.7) ? 'challenged' : hypothesis.status;
+
           await this.context.dealMemory.updateHypothesisConfidence(
             hypothesis.id,
             newConfidence,
-            hypothesisContradictions.some((c) => c.contradiction.severity > 0.7) ? 'challenged' : hypothesis.status
+            newStatus
           );
+
+          // Also update PostgreSQL for API access
+          try {
+            await this.hypothesisRepo.update(hypothesis.id, {
+              confidence: newConfidence,
+              status: newStatus,
+            });
+          } catch (pgError) {
+            // Hypothesis may not exist in PostgreSQL (in-memory only from older workflow)
+            console.log(`[ContradictionHunter] Could not update hypothesis ${hypothesis.id} in PostgreSQL:`, pgError);
+          }
 
           this.emitEvent(createHypothesisUpdatedEvent(
             this.context.engagementId,
@@ -160,7 +173,7 @@ For each contradiction found:
             {
               confidence: newConfidence,
               confidence_delta: confidenceDelta,
-              status: 'challenged',
+              status: newStatus,
               previous_status: hypothesis.status,
             },
             this.config.id
@@ -244,14 +257,18 @@ For each contradiction found:
                 engagementId: this.context!.engagementId,
                 // Only include hypothesisId if it exists in PostgreSQL
                 ...(hypothesisExists ? { hypothesisId: hypothesis.id } : {}),
-                evidenceId: contradiction.evidence_id,
+                // Don't include evidenceId - the in-memory UUID is not a real evidence record
+                // The contradiction is based on web search results, not stored evidence
                 description: analysis.explanation,
                 severity: severityCategory,
                 metadata: {
                   numericSeverity: analysis.severity,
                   sourceQuery: query,
                   sourceUrl: result.url,
-                  // Store the in-memory hypothesis ID in metadata if not in PostgreSQL
+                  // Store source content preview for reference
+                  sourceContentPreview: result.content.slice(0, 500),
+                  // Store the in-memory IDs in metadata for debugging
+                  inMemoryEvidenceId: contradiction.evidence_id,
                   ...(!hypothesisExists ? { inMemoryHypothesisId: hypothesis.id } : {}),
                 },
               });

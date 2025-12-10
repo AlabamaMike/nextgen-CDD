@@ -107,8 +107,8 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
       };
       jobStore.set(jobId, job);
 
-      // Update engagement status
-      updateEngagement(engagementId, { status: 'research_active' });
+      // Update engagement status (use 'active' as the closest valid status)
+      void updateEngagement(engagementId, { status: 'active' });
 
       // Start research workflow asynchronously
       executeResearchWorkflowAsync(job, engagement, config, user.id);
@@ -145,11 +145,11 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
-      const dealMemory = createDealMemory();
-      const hypotheses = await dealMemory.searchHypotheses(engagementId, '', 100);
+      const dealMemory = await createDealMemory(engagementId);
+      const hypotheses = await dealMemory.getAllHypotheses();
 
       // Build tree structure
-      const tree = buildHypothesisTree(hypotheses, engagement.investment_thesis?.summary ?? '');
+      const tree = buildHypothesisTree(engagementId, hypotheses);
 
       reply.send({
         engagement_id: engagementId,
@@ -292,7 +292,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
       reply: FastifyReply
     ) => {
       const { engagementId } = request.params;
-      const { format, include_evidence, include_contradictions } = request.query;
+      const { format } = request.query;
 
       const engagement = await getEngagement(engagementId);
       if (!engagement) {
@@ -303,23 +303,22 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
-      const dealMemory = createDealMemory();
+      const dealMemory = await createDealMemory(engagementId);
 
       // Gather all data
-      const hypotheses = await dealMemory.searchHypotheses(engagementId, '', 100);
-      const evidence = include_evidence
-        ? await dealMemory.searchEvidence(engagementId, '', 200)
-        : [];
-      const contradictions = include_contradictions
-        ? await dealMemory.searchContradictions(engagementId, '', 50)
-        : [];
+      const hypotheses = await dealMemory.getAllHypotheses();
+      const stats = await dealMemory.getStats();
+
+      // Count contradictions from hypotheses (approximation - contradictions affect evidence count)
+      // Note: DealMemory doesn't track contradiction_count separately, use 0 as placeholder
+      const contradictionCount = 0;
 
       // Generate report based on format
       const report = generateReport(
         engagement,
         hypotheses,
-        evidence,
-        contradictions,
+        stats.evidence_count,
+        contradictionCount,
         format
       );
 
@@ -537,7 +536,7 @@ function createThrottledEventHandler(
  */
 async function executeResearchWorkflowAsync(
   job: ResearchJob,
-  engagement: ReturnType<typeof getEngagement> & {},
+  engagement: NonNullable<Awaited<ReturnType<typeof getEngagement>>>,
   config: {
     depth: 'quick' | 'standard' | 'deep';
     focus_areas?: string[];
@@ -602,8 +601,8 @@ async function executeResearchWorkflowAsync(
       },
     });
 
-    // Update engagement status
-    updateEngagement(engagement.id, { status: 'research_complete' });
+    // Update engagement status (use 'completed' as the closest valid status)
+    void updateEngagement(engagement.id, { status: 'completed' });
   } catch (error) {
     job.status = 'failed';
     job.completedAt = Date.now();
@@ -624,7 +623,8 @@ async function executeResearchWorkflowAsync(
       data: { workflow_type: 'research', error: job.error },
     });
 
-    updateEngagement(engagement.id, { status: 'research_failed' });
+    // Note: No 'failed' status in EngagementStatus - leave status unchanged for failure
+    // The job.status tracks the failure state
   }
 }
 
@@ -633,25 +633,29 @@ async function executeResearchWorkflowAsync(
  */
 async function executeStressTestAsync(
   job: ResearchJob,
-  engagement: ReturnType<typeof getEngagement> & {},
+  engagement: NonNullable<Awaited<ReturnType<typeof getEngagement>>>,
   config: {
     hypothesis_ids?: string[];
     intensity: 'light' | 'moderate' | 'aggressive';
     devil_advocate_mode: boolean;
     search_contrarian_sources: boolean;
   },
-  userId: string
+  _userId: string
 ): Promise<void> {
   job.status = 'running';
 
   try {
-    const result = await executeStressTestWorkflow({
+    const stressTestInput: Parameters<typeof executeStressTestWorkflow>[0] = {
       engagementId: engagement.id,
-      hypothesisIds: config.hypothesis_ids,
       config: {
         intensity: config.intensity,
       },
-    });
+    };
+    // Only include hypothesisIds if defined (to satisfy exactOptionalPropertyTypes)
+    if (config.hypothesis_ids) {
+      stressTestInput.hypothesisIds = config.hypothesis_ids;
+    }
+    const result = await executeStressTestWorkflow(stressTestInput);
 
     job.status = 'completed';
     job.progress = 100;
@@ -668,37 +672,21 @@ async function executeStressTestAsync(
  * Build hypothesis tree from flat list
  */
 function buildHypothesisTree(
-  hypotheses: HypothesisNode[],
-  rootThesis: string
+  engagementId: string,
+  hypotheses: HypothesisNode[]
 ): HypothesisTree {
-  const nodeMap = new Map<string, HypothesisNode>();
-  hypotheses.forEach((h) => nodeMap.set(h.id, h));
-
-  // Find root nodes (those without parents or where parent is the main thesis)
-  const rootNodes = hypotheses.filter(
-    (h) => !h.parent_id || !nodeMap.has(h.parent_id)
-  );
-
-  // Build tree structure recursively
-  function buildSubtree(node: HypothesisNode): HypothesisNode & { children: HypothesisNode[] } {
-    const children = hypotheses
-      .filter((h) => h.parent_id === node.id)
-      .map(buildSubtree);
-
-    return {
-      ...node,
-      children,
-    };
-  }
+  // Find the root thesis node (first 'thesis' type node)
+  const rootNode = hypotheses.find((h) => h.type === 'thesis');
+  const rootThesisId = rootNode?.id ?? crypto.randomUUID();
 
   return {
     id: crypto.randomUUID(),
-    root_thesis: rootThesis,
+    engagement_id: engagementId,
+    root_thesis_id: rootThesisId,
     nodes: hypotheses,
     edges: [], // Would be populated from causal graph
     created_at: Date.now(),
     updated_at: Date.now(),
-    version: 1,
   };
 }
 
@@ -706,35 +694,41 @@ function buildHypothesisTree(
  * Generate report in specified format
  */
 function generateReport(
-  engagement: ReturnType<typeof getEngagement> & {},
+  engagement: NonNullable<Awaited<ReturnType<typeof getEngagement>>>,
   hypotheses: HypothesisNode[],
-  evidence: unknown[],
-  contradictions: unknown[],
+  evidenceCount: number,
+  contradictionCount: number,
   format: 'json' | 'markdown' | 'html'
 ): string | object {
-  const reportData = {
-    engagement: {
-      id: engagement.id,
-      name: engagement.name,
-      target: engagement.target,
-      thesis: engagement.investment_thesis,
-      status: engagement.status,
+  // Build engagement object for report (handle optional thesis)
+  const engagementData: ReportData['engagement'] = {
+    id: engagement.id,
+    name: engagement.name,
+    target: {
+      name: engagement.target_company.name,
+      sector: engagement.target_company.sector,
     },
+    status: engagement.status,
+  };
+  if (engagement.investment_thesis) {
+    engagementData.thesis = { summary: engagement.investment_thesis.summary };
+  }
+
+  const reportData: ReportData = {
+    engagement: engagementData,
     summary: {
       hypothesis_count: hypotheses.length,
-      evidence_count: evidence.length,
-      contradiction_count: contradictions.length,
+      evidence_count: evidenceCount,
+      contradiction_count: contradictionCount,
       overall_confidence: calculateOverallConfidence(hypotheses),
     },
     hypotheses: hypotheses.map((h) => ({
       id: h.id,
-      statement: h.statement,
+      content: h.content,
       type: h.type,
       status: h.status,
       confidence: h.confidence,
     })),
-    evidence,
-    contradictions,
     generated_at: Date.now(),
   };
 
@@ -755,24 +749,47 @@ function generateReport(
 function calculateOverallConfidence(hypotheses: HypothesisNode[]): number {
   if (hypotheses.length === 0) return 0;
 
-  const confidences = hypotheses.map((h) => h.confidence.current);
+  const confidences = hypotheses.map((h) => h.confidence);
   return confidences.reduce((a, b) => a + b, 0) / confidences.length;
+}
+
+/**
+ * Report data type for markdown and HTML generation
+ */
+interface ReportData {
+  engagement: {
+    id: string;
+    name: string;
+    target: { name: string; sector: string };
+    thesis?: { summary: string };
+    status: string;
+  };
+  summary: {
+    hypothesis_count: number;
+    evidence_count: number;
+    contradiction_count: number;
+    overall_confidence: number;
+  };
+  hypotheses: {
+    id: string;
+    content: string;
+    type: string;
+    status: string;
+    confidence: number;
+  }[];
+  generated_at: number;
 }
 
 /**
  * Generate markdown report
  */
-function generateMarkdownReport(data: {
-  engagement: { name: string; target: { name: string }; thesis?: { statement: string } };
-  summary: { hypothesis_count: number; evidence_count: number; contradiction_count: number; overall_confidence: number };
-  hypotheses: { statement: string; type: string; status: string; confidence: { current: number } }[];
-}): string {
+function generateMarkdownReport(data: ReportData): string {
   return `# Research Report: ${data.engagement.name}
 
 ## Executive Summary
 
 **Target Company:** ${data.engagement.target.name}
-**Investment Thesis:** ${data.engagement.investment_thesis?.summary ?? 'Not specified'}
+**Investment Thesis:** ${data.engagement.thesis?.summary ?? 'Not specified'}
 
 ### Key Metrics
 - **Hypotheses Tested:** ${data.summary.hypothesis_count}
@@ -782,10 +799,10 @@ function generateMarkdownReport(data: {
 
 ## Hypothesis Analysis
 
-${data.hypotheses.map((h) => `### ${h.statement}
+${data.hypotheses.map((h) => `### ${h.content}
 - **Type:** ${h.type}
 - **Status:** ${h.status}
-- **Confidence:** ${(h.confidence.current * 100).toFixed(1)}%
+- **Confidence:** ${(h.confidence * 100).toFixed(1)}%
 `).join('\n')}
 
 ---
@@ -796,11 +813,8 @@ ${data.hypotheses.map((h) => `### ${h.statement}
 /**
  * Generate HTML report
  */
-function generateHtmlReport(data: {
-  engagement: { name: string; target: { name: string }; thesis?: { statement: string } };
-  summary: { hypothesis_count: number; evidence_count: number; contradiction_count: number; overall_confidence: number };
-  hypotheses: { statement: string; type: string; status: string; confidence: { current: number } }[];
-}): string {
+function generateHtmlReport(data: ReportData): string {
+  const confidenceColor = data.summary.overall_confidence > 0.7 ? '#28a745' : data.summary.overall_confidence > 0.4 ? '#ffc107' : '#dc3545';
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -810,7 +824,7 @@ function generateHtmlReport(data: {
     h1 { color: #333; }
     .metric { display: inline-block; margin-right: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
     .hypothesis { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
-    .confidence { font-weight: bold; color: ${data.summary.overall_confidence > 0.7 ? '#28a745' : data.summary.overall_confidence > 0.4 ? '#ffc107' : '#dc3545'}; }
+    .confidence { font-weight: bold; color: ${confidenceColor}; }
   </style>
 </head>
 <body>
@@ -818,7 +832,7 @@ function generateHtmlReport(data: {
 
   <h2>Executive Summary</h2>
   <p><strong>Target Company:</strong> ${data.engagement.target.name}</p>
-  <p><strong>Investment Thesis:</strong> ${data.engagement.investment_thesis?.summary ?? 'Not specified'}</p>
+  <p><strong>Investment Thesis:</strong> ${data.engagement.thesis?.summary ?? 'Not specified'}</p>
 
   <h3>Key Metrics</h3>
   <div class="metric">Hypotheses: ${data.summary.hypothesis_count}</div>
@@ -829,8 +843,8 @@ function generateHtmlReport(data: {
   <h2>Hypothesis Analysis</h2>
   ${data.hypotheses.map((h) => `
   <div class="hypothesis">
-    <h3>${h.statement}</h3>
-    <p><strong>Type:</strong> ${h.type} | <strong>Status:</strong> ${h.status} | <strong>Confidence:</strong> ${(h.confidence.current * 100).toFixed(1)}%</p>
+    <h3>${h.content}</h3>
+    <p><strong>Type:</strong> ${h.type} | <strong>Status:</strong> ${h.status} | <strong>Confidence:</strong> ${(h.confidence * 100).toFixed(1)}%</p>
   </div>
   `).join('')}
 

@@ -4,6 +4,7 @@ import TextInput from 'ink-text-input';
 import WebSocket from 'ws';
 import { ThesisValidatorClient } from '../../api/client.js';
 import type { Engagement, ResearchJob, ProgressEvent, ResearchConfig } from '../../types/api.js';
+import { ResearchProgressDisplay } from '../research/ResearchProgressDisplay.js';
 
 interface ResearchTabProps {
   serverUrl: string;
@@ -250,37 +251,14 @@ export function ResearchTab({ serverUrl, authToken }: ResearchTabProps): React.R
   }
 
   if (view === 'running') {
-    const latestEvent = progressEvents[progressEvents.length - 1];
-
     return (
       <Box flexDirection="column">
-        <Text bold color="cyan">Research in Progress: {selectedEngagement?.name}</Text>
-        <Text color="gray">Job ID: {job?.id}</Text>
-        <Text>{''}</Text>
-
-        <Text bold>Status: <Text color="yellow">{job?.status}</Text></Text>
-        <Text>{''}</Text>
-
-        {latestEvent && (
-          <Box flexDirection="column">
-            <Text bold color="green">Latest Update:</Text>
-            <Text>Type: {latestEvent.type}</Text>
-            <Text>Message: {String(latestEvent.data.message ?? 'Processing...')}</Text>
-            {typeof latestEvent.data.progress === 'number' && (
-              <Text>Progress: {latestEvent.data.progress}%</Text>
-            )}
-          </Box>
-        )}
-
-        <Text>{''}</Text>
-        <Text bold color="cyan">Progress Events:</Text>
-        <Box flexDirection="column">
-          {progressEvents.slice(-10).reverse().map((event, idx) => (
-            <Text key={idx} color="gray">
-              [{new Date(event.timestamp).toLocaleTimeString()}] {event.type}: {String(event.data.message ?? '')}
-            </Text>
-          ))}
-        </Box>
+        <ResearchProgressDisplay
+          jobId={job?.id ?? ''}
+          status={job?.status ?? 'queued'}
+          progressEvents={progressEvents}
+          engagementName={selectedEngagement?.name ?? 'Unknown'}
+        />
       </Box>
     );
   }

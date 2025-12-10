@@ -5,6 +5,7 @@ import WebSocket from 'ws';
 import { ThesisValidatorClient } from '../../api/client.js';
 import type { Engagement, ResearchJob, ProgressEvent, ResearchConfig } from '../../types/api.js';
 import { useInputContext } from '../../context/InputContext.js';
+import { ResearchProgressDisplay } from './ResearchProgressDisplay.js';
 
 
 
@@ -239,52 +240,14 @@ export function EngagementResearch({
 
   // Running view
   if (view === 'running') {
-    const latestEvent = progressEvents[progressEvents.length - 1];
-
     return (
       <Box flexDirection="column" paddingY={1}>
-        <Box marginBottom={1}>
-          <Text bold color="cyan">
-            Research in Progress: {engagement.name}
-          </Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="gray">Job ID: {job?.id}</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text bold>
-            Status: <Text color="yellow">{job?.status}</Text>
-          </Text>
-        </Box>
-
-        {latestEvent && (
-          <Box flexDirection="column" marginBottom={1}>
-            <Text bold color="green">
-              Latest Update:
-            </Text>
-            <Text>Type: {latestEvent.type}</Text>
-            <Text>Message: {String(latestEvent.data.message ?? 'Processing...')}</Text>
-            {typeof latestEvent.data.progress === 'number' && (
-              <Text>Progress: {latestEvent.data.progress}%</Text>
-            )}
-          </Box>
-        )}
-
-        <Box marginTop={1}>
-          <Text bold color="cyan">
-            Progress Events:
-          </Text>
-        </Box>
-        <Box flexDirection="column">
-          {progressEvents.slice(-8).reverse().map((event, idx) => (
-            <Text key={idx} color="gray">
-              [{new Date(event.timestamp).toLocaleTimeString()}] {event.type}:{' '}
-              {String(event.data.message ?? '')}
-            </Text>
-          ))}
-        </Box>
+        <ResearchProgressDisplay
+          jobId={job?.id ?? ''}
+          status={job?.status ?? 'queued'}
+          progressEvents={progressEvents}
+          engagementName={engagement.name}
+        />
       </Box>
     );
   }

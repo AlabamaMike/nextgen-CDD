@@ -32,6 +32,17 @@ import type {
   ResearchQualityMetrics,
   MetricData,
   MetricType,
+  SkillData,
+  SkillFilters,
+  SkillExecuteRequest,
+  SkillExecuteResult,
+  ComparableData,
+  DocumentData,
+  DocumentFilters,
+  DocumentUploadResponse,
+  TeamMember,
+  AddTeamMemberRequest,
+  TeamResponse,
 } from '../types/api.js';
 
 export class ThesisValidatorClient {
@@ -578,8 +589,149 @@ export class ThesisValidatorClient {
    */
   async calculateMetrics(engagementId: string): Promise<ResearchQualityMetrics> {
     const response = await this.http.post<{ metrics: ResearchQualityMetrics }>(
-      `/api/v1/engagements/${engagementId}/metrics/calculate`
+      `/api/v1/engagements/${engagementId}/metrics/calculate`,
+      {} // Empty body required when Content-Type is application/json
     );
     return response.data.metrics;
+  }
+
+  // ============== Skills Methods ==============
+
+  /**
+   * Get skills list
+   */
+  async getSkills(filters?: SkillFilters): Promise<{ skills: SkillData[]; total: number }> {
+    const response = await this.http.get<{ skills: SkillData[]; total: number; limit: number; offset: number }>(
+      '/api/v1/skills',
+      { params: filters }
+    );
+    return { skills: response.data.skills, total: response.data.total };
+  }
+
+  /**
+   * Get skill by ID
+   */
+  async getSkill(skillId: string): Promise<SkillData> {
+    const response = await this.http.get<{ skill: SkillData }>(
+      `/api/v1/skills/${skillId}`
+    );
+    return response.data.skill;
+  }
+
+  /**
+   * Execute a skill
+   */
+  async executeSkill(skillId: string, request: SkillExecuteRequest): Promise<SkillExecuteResult> {
+    const response = await this.http.post<SkillExecuteResult>(
+      `/api/v1/skills/${skillId}/execute`,
+      request
+    );
+    return response.data;
+  }
+
+  /**
+   * Search comparables
+   */
+  async searchComparables(
+    query: string,
+    options?: { sector?: string; deal_type?: string; min_relevance?: number; limit?: number }
+  ): Promise<ComparableData[]> {
+    const response = await this.http.get<{ comparables: ComparableData[]; count: number }>(
+      '/api/v1/skills/comparables',
+      { params: { query, ...options } }
+    );
+    return response.data.comparables;
+  }
+
+  // ============== Document Methods ==============
+
+  /**
+   * Get documents for an engagement
+   */
+  async getDocuments(engagementId: string, filters?: DocumentFilters): Promise<DocumentData[]> {
+    const response = await this.http.get<{ documents: DocumentData[] }>(
+      `/api/v1/engagements/${engagementId}/documents`,
+      { params: filters }
+    );
+    return response.data.documents;
+  }
+
+  /**
+   * Get a single document
+   */
+  async getDocument(engagementId: string, documentId: string): Promise<DocumentData> {
+    const response = await this.http.get<{ document: DocumentData }>(
+      `/api/v1/engagements/${engagementId}/documents/${documentId}`
+    );
+    return response.data.document;
+  }
+
+  /**
+   * Upload a document (for use with FormData)
+   * Note: In a TUI context, this would be called with a file path
+   * The actual upload requires multipart/form-data which axios handles
+   */
+  async uploadDocument(
+    engagementId: string,
+    file: File | Blob,
+    filename: string
+  ): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file, filename);
+
+    const response = await this.http.post<DocumentUploadResponse>(
+      `/api/v1/engagements/${engagementId}/documents`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete a document
+   */
+  async deleteDocument(engagementId: string, documentId: string): Promise<void> {
+    await this.http.delete(`/api/v1/engagements/${engagementId}/documents/${documentId}`);
+  }
+
+  // ============== Team Management Methods ==============
+
+  /**
+   * Add a team member to an engagement
+   */
+  async addTeamMember(
+    engagementId: string,
+    data: AddTeamMemberRequest
+  ): Promise<TeamResponse> {
+    const response = await this.http.post<TeamResponse>(
+      `/api/v1/engagements/${engagementId}/team`,
+      data
+    );
+    return response.data;
+  }
+
+  /**
+   * Remove a team member from an engagement
+   */
+  async removeTeamMember(engagementId: string, userId: string): Promise<TeamResponse> {
+    const response = await this.http.delete<TeamResponse>(
+      `/api/v1/engagements/${engagementId}/team/${userId}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get team members for an engagement
+   * Note: Team info is included in engagement details, this is a convenience method
+   */
+  async getTeamMembers(engagementId: string): Promise<TeamMember[]> {
+    const response = await this.http.get<{ team: TeamMember[] }>(
+      `/api/v1/engagements/${engagementId}/team`
+    );
+    return response.data.team;
   }
 }

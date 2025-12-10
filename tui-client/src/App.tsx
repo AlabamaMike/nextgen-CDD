@@ -9,8 +9,12 @@ import { HypothesisTab } from './components/tabs/HypothesisTab.js';
 import { ContradictionTab } from './components/tabs/ContradictionTab.js';
 import { StressTestTab } from './components/tabs/StressTestTab.js';
 import { MonitorTab } from './components/tabs/MonitorTab.js';
+import { SkillsTab } from './components/tabs/SkillsTab.js';
+import { DocumentsTab } from './components/tabs/DocumentsTab.js';
 import { useHealthCheck } from './hooks/useAPI.js';
 import { InputProvider, useInputContext } from './context/InputContext.js';
+import { ErrorProvider, ErrorDisplay } from './context/ErrorContext.js';
+import { HelpView } from './components/HelpView.js';
 
 interface AppProps {
   serverUrl: string;
@@ -19,6 +23,7 @@ interface AppProps {
 
 function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
   const { isOnline } = useHealthCheck(serverUrl);
   const { exit } = useApp();
   const { isInputActive } = useInputContext();
@@ -28,6 +33,15 @@ function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
     // Skip global hotkeys when text input is active
     if (isInputActive) return;
 
+    // Toggle help view
+    if (input === '?' || input === 'h' || input === 'H') {
+      setShowHelp(!showHelp);
+      return;
+    }
+
+    // Skip other hotkeys when help is shown
+    if (showHelp) return;
+
     // Tab switching
     if (input === '1') setActiveTab(0);
     if (input === '2') setActiveTab(1);
@@ -36,6 +50,8 @@ function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
     if (input === '5') setActiveTab(4);
     if (input === '6') setActiveTab(5);
     if (input === '7') setActiveTab(6);
+    if (input === '8') setActiveTab(7);
+    if (input === '9') setActiveTab(8);
 
     // Quit
     if (input === 'q' || input === 'Q') {
@@ -65,14 +81,21 @@ function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
         return '↑↓: Navigate  Enter: Details  N: New Test  R: Refresh  D: Delete  B: Back';
       case 6:
         return '↑↓: Navigate  Enter: Select  R: Refresh  C: Calculate  A: Auto-refresh  B: Back';
+      case 7:
+        return '↑↓: Navigate  Enter: Details  F: Filter  X: Execute  B: Back';
+      case 8:
+        return '↑↓: Navigate  Enter: Details  U: Upload  D: Delete  F: Filter  R: Refresh  B: Back';
       default:
-        return '1-7: Switch Tabs  Q: Quit  ?: Help';
+        return '1-9: Switch Tabs  Q: Quit  ?: Help';
     }
   };
 
   return (
     <Box flexDirection="column" height="100%">
       <Header serverUrl={serverUrl} isOnline={isOnline} />
+
+      {/* Global Error Display */}
+      <ErrorDisplay maxVisible={2} />
 
       {/* Tab Bar */}
       <Box borderStyle="single" borderColor="gray" paddingX={1}>
@@ -90,18 +113,30 @@ function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
         <Text> </Text>
         <Text color={activeTab === 6 ? 'cyan' : 'gray'}>[7] Monitor</Text>
         <Text> </Text>
+        <Text color={activeTab === 7 ? 'magenta' : 'gray'}>[8] Skills</Text>
+        <Text> </Text>
+        <Text color={activeTab === 8 ? 'cyan' : 'gray'}>[9] Docs</Text>
+        <Text> </Text>
         <Text color="red">[Q]</Text>
       </Box>
 
       {/* Content Area */}
       <Box flexGrow={1} paddingX={1} paddingY={1}>
-        {activeTab === 0 && <EngagementsTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 1 && <ResearchTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 2 && <EvidenceTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 3 && <HypothesisTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 4 && <ContradictionTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 5 && <StressTestTab serverUrl={serverUrl} authToken={authToken} />}
-        {activeTab === 6 && <MonitorTab serverUrl={serverUrl} authToken={authToken} />}
+        {showHelp ? (
+          <HelpView tabIndex={activeTab} onClose={() => setShowHelp(false)} />
+        ) : (
+          <>
+            {activeTab === 0 && <EngagementsTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 1 && <ResearchTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 2 && <EvidenceTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 3 && <HypothesisTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 4 && <ContradictionTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 5 && <StressTestTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 6 && <MonitorTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 7 && <SkillsTab serverUrl={serverUrl} authToken={authToken} />}
+            {activeTab === 8 && <DocumentsTab serverUrl={serverUrl} authToken={authToken} />}
+          </>
+        )}
       </Box>
 
       <Footer helpText={getHelpText()} />
@@ -111,8 +146,10 @@ function AppContent({ serverUrl, authToken }: AppProps): React.ReactElement {
 
 export function App({ serverUrl, authToken }: AppProps): React.ReactElement {
   return (
-    <InputProvider>
-      <AppContent serverUrl={serverUrl} authToken={authToken} />
-    </InputProvider>
+    <ErrorProvider>
+      <InputProvider>
+        <AppContent serverUrl={serverUrl} authToken={authToken} />
+      </InputProvider>
+    </ErrorProvider>
   );
 }

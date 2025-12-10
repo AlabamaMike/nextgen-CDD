@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { Engagement, CreateEngagementRequest } from '../../types/api.js';
+import type { Engagement, CreateEngagementRequest, UpdateEngagementRequest } from '../../types/api.js';
 import { useEngagements } from '../../hooks/useAPI.js';
 import { ThesisValidatorClient } from '../../api/client.js';
 import { EngagementCreateForm } from '../forms/EngagementCreateForm.js';
+import { EngagementEditForm } from '../forms/EngagementEditForm.js';
 import { EngagementDetail } from '../details/EngagementDetail.js';
 import { EngagementResearch } from '../research/EngagementResearch.js';
 
@@ -53,7 +54,7 @@ function formatStatus(status: Engagement['status']): string {
   }
 }
 
-type ViewMode = 'list' | 'detail' | 'create' | 'research' | 'confirm_delete';
+type ViewMode = 'list' | 'detail' | 'create' | 'edit' | 'research' | 'confirm_delete';
 
 interface DeleteConfirmationProps {
   engagementName: string;
@@ -190,6 +191,30 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
     setMessage('');
   };
 
+  // Handle edit engagement
+  const handleEditEngagement = async (updates: UpdateEngagementRequest) => {
+    const engagement = engagements[selectedIndex];
+    if (!engagement) return;
+
+    try {
+      setIsSubmitting(true);
+      await apiClient.updateEngagement(engagement.id, updates);
+      setMessage(`Successfully updated engagement: ${engagement.name}`);
+      setViewMode('list');
+      await refresh();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update engagement';
+      setMessage(`Error: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setViewMode('list');
+    setMessage('');
+  };
+
   // Handle keyboard input
   useInput((input, key) => {
     if (loading || error || viewMode !== 'list') return;
@@ -211,7 +236,8 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
     }
     if (input === 'e' || input === 'E') {
       if (engagements.length > 0) {
-        setMessage(`Editing: ${engagements[selectedIndex]?.name} - Feature coming soon!`);
+        setViewMode('edit');
+        setMessage('');
       }
     }
     if (input === 'd' || input === 'D') {
@@ -265,6 +291,18 @@ export function EngagementsTab({ serverUrl, authToken }: EngagementsTabProps): R
       <EngagementCreateForm
         onSubmit={handleCreateEngagement}
         onCancel={handleCancelCreate}
+        isSubmitting={isSubmitting}
+      />
+    );
+  }
+
+  // Show edit form
+  if (viewMode === 'edit' && engagements[selectedIndex]) {
+    return (
+      <EngagementEditForm
+        engagement={engagements[selectedIndex]}
+        onSubmit={handleEditEngagement}
+        onCancel={handleCancelEdit}
         isSubmitting={isSubmitting}
       />
     );

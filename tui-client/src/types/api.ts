@@ -407,3 +407,116 @@ export interface MetricsHistoryResponse {
   history?: MetricData[];
   latest?: Record<MetricType, MetricData | null>;
 }
+
+// ============== Skills Types ==============
+
+export type SkillCategory = 'analysis' | 'research' | 'synthesis' | 'validation' | 'other';
+
+export interface SkillData {
+  id: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  version: string;
+  success_rate: number;
+  usage_count: number;
+  similarity_score?: number;
+}
+
+export interface SkillFilters {
+  category?: SkillCategory;
+  query?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SkillExecuteRequest {
+  parameters: Record<string, unknown>;
+  context?: {
+    engagement_id?: string;
+    hypothesis_id?: string;
+    additional_context?: string;
+  };
+}
+
+export interface SkillExecuteResult {
+  skill_id: string;
+  success: boolean;
+  output: unknown;
+  execution_time_ms: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ComparableData {
+  pattern_id: string;
+  description: string;
+  thesis_pattern: string;
+  similarity: number;
+  outcomes: string[];
+  lessons_learned: string[];
+  sector?: string;
+  deal_type?: string;
+}
+
+// ============== Document Types ==============
+
+export type DocumentFormat = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'html' | 'image' | 'unknown';
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface DocumentData {
+  id: string;
+  engagementId: string;
+  filename: string;
+  originalFilename: string;
+  format: DocumentFormat;
+  mimeType: string;
+  sizeBytes: number;
+  status: DocumentStatus;
+  extractedText?: string;
+  evidenceCount?: number;
+  errorMessage?: string;
+  uploadedBy: string;
+  createdAt: string;
+  processedAt?: string;
+}
+
+export interface DocumentFilters {
+  status?: DocumentStatus;
+  format?: DocumentFormat;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DocumentListResponse {
+  documents: DocumentData[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DocumentUploadResponse {
+  document_id: string;
+  message: string;
+  status: DocumentStatus;
+}
+
+// ============== Team Management Types ==============
+
+export type AccessLevel = 'owner' | 'editor' | 'viewer';
+
+export interface TeamMember {
+  userId: string;
+  accessLevel: AccessLevel;
+  grantedAt: number;
+  grantedBy: string;
+}
+
+export interface AddTeamMemberRequest {
+  user_id: string;
+  access_level: AccessLevel;
+}
+
+export interface TeamResponse {
+  message: string;
+  team: TeamMember[];
+}

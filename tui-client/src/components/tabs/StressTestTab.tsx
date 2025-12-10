@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useEngagements, useStressTests } from '../../hooks/useAPI.js';
 import { useInputContext } from '../../context/InputContext.js';
@@ -67,8 +67,8 @@ export function StressTestTab({ serverUrl, authToken }: StressTestTabProps): Rea
   // Configuration state
   const [configIntensity, setConfigIntensity] = useState<StressTestIntensity>('moderate');
 
-  // Polling state for running tests
-  const [pollingActive, setPollingActive] = useState(false);
+  // Polling ref for running tests (use ref to avoid render loops)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { isInputActive } = useInputContext();
 
@@ -81,26 +81,36 @@ export function StressTestTab({ serverUrl, authToken }: StressTestTabProps): Rea
 
   const selectedTest = stressTests[selectedIndex];
 
+  // Memoize refresh to prevent dependency changes
+  const stableRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+
   // Poll for updates when there are running tests
   useEffect(() => {
     const hasRunningTests = stressTests.some(t => t.status === 'running' || t.status === 'pending');
 
-    if (hasRunningTests && selectedEngagementId && !pollingActive) {
-      setPollingActive(true);
-      const interval = setInterval(() => {
-        void refresh();
-      }, 3000);
-
-      return () => {
-        clearInterval(interval);
-        setPollingActive(false);
-      };
+    if (hasRunningTests && selectedEngagementId) {
+      // Only start polling if not already active
+      if (!pollingIntervalRef.current) {
+        pollingIntervalRef.current = setInterval(stableRefresh, 3000);
+      }
+    } else {
+      // Stop polling when no running tests
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     }
 
-    if (!hasRunningTests && pollingActive) {
-      setPollingActive(false);
-    }
-  }, [stressTests, selectedEngagementId, pollingActive, refresh]);
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [stressTests, selectedEngagementId, stableRefresh]);
 
   // Start a stress test
   const handleStartTest = async () => {

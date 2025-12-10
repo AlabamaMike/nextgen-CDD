@@ -6,6 +6,7 @@ import { getPool } from '../db/index.js';
 import type { HypothesisStatus, HypothesisType } from '../models/hypothesis.js';
 
 export interface CreateHypothesisParams {
+  id?: string; // Optional: provide a specific ID instead of auto-generating
   engagementId: string;
   parentId?: string;
   type: HypothesisType;
@@ -71,6 +72,32 @@ export class HypothesisRepository {
 
   async create(params: CreateHypothesisParams): Promise<HypothesisDTO> {
     const pool = getPool();
+
+    // If an explicit ID is provided, use it; otherwise let PostgreSQL generate one
+    if (params.id) {
+      const { rows } = await pool.query<HypothesisRow>(
+        `INSERT INTO hypotheses (
+          id, engagement_id, parent_id, type, content, confidence, status,
+          importance, testability, metadata, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *`,
+        [
+          params.id,
+          params.engagementId,
+          params.parentId ?? null,
+          params.type,
+          params.content,
+          params.confidence ?? 0.5,
+          params.status ?? 'untested',
+          params.importance ?? null,
+          params.testability ?? null,
+          params.metadata ?? {},
+          params.createdBy,
+        ]
+      );
+      return this.mapRowToDTO(rows[0]!);
+    }
+
     const { rows } = await pool.query<HypothesisRow>(
       `INSERT INTO hypotheses (
         engagement_id, parent_id, type, content, confidence, status,

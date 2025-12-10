@@ -114,10 +114,14 @@ Output structured JSON with clear hierarchy and relationships.`,
         throw new Error('Failed to create root thesis');
       }
 
-      // Store hypotheses in memory
+      // Store hypotheses in memory and capture the deal memory IDs
+      // Map in-memory IDs to deal memory IDs for consistency
+      const inMemoryToDealMemoryMap = new Map<string, string>();
+      const storedHypotheses: HypothesisNode[] = [];
+
       for (const hypothesis of hypotheses) {
         const embedding = await this.embed(hypothesis.content);
-        await this.context.dealMemory.createHypothesis(
+        const storedHypothesis = await this.context.dealMemory.createHypothesis(
           {
             type: hypothesis.type,
             content: hypothesis.content,
@@ -126,25 +130,31 @@ Output structured JSON with clear hierarchy and relationships.`,
           this.config.id,
           embedding
         );
+        // Map original in-memory ID to deal memory ID
+        inMemoryToDealMemoryMap.set(hypothesis.id, storedHypothesis.id);
+        storedHypotheses.push(storedHypothesis);
       }
 
-      // Store relationships
+      // Store relationships using deal memory IDs
       for (const rel of relationships) {
-        await this.context.dealMemory.addCausalEdge({
-          source_id: rel.sourceId,
-          target_id: rel.targetId,
-          relationship: rel.relationship,
-          strength: rel.strength,
-          reasoning: rel.reasoning,
-        });
+        const dmSourceId = inMemoryToDealMemoryMap.get(rel.sourceId);
+        const dmTargetId = inMemoryToDealMemoryMap.get(rel.targetId);
+
+        if (dmSourceId && dmTargetId) {
+          await this.context.dealMemory.addCausalEdge({
+            source_id: dmSourceId,
+            target_id: dmTargetId,
+            relationship: rel.relationship,
+            strength: rel.strength,
+            reasoning: rel.reasoning,
+          });
+        }
       }
 
-      // Store hypotheses in PostgreSQL
-      // Map in-memory IDs to PostgreSQL IDs
-      const idMap = new Map<string, string>();
-
-      for (const hypothesis of hypotheses) {
-        const pgHypothesis = await this.hypothesisRepo.create({
+      // Store hypotheses in PostgreSQL using deal memory IDs
+      for (const hypothesis of storedHypotheses) {
+        await this.hypothesisRepo.create({
+          id: hypothesis.id, // Use deal memory ID as PostgreSQL ID for consistency
           engagementId: this.context.engagementId,
           type: hypothesis.type,
           content: hypothesis.content,
@@ -153,19 +163,17 @@ Output structured JSON with clear hierarchy and relationships.`,
           createdBy: this.config.id,
           metadata: hypothesis.metadata,
         });
-        // Map in-memory ID to PostgreSQL ID
-        idMap.set(hypothesis.id, pgHypothesis.id);
       }
 
-      // Store relationships in PostgreSQL using mapped IDs
+      // Store relationships in PostgreSQL using deal memory IDs
       for (const rel of relationships) {
-        const pgSourceId = idMap.get(rel.sourceId);
-        const pgTargetId = idMap.get(rel.targetId);
+        const dmSourceId = inMemoryToDealMemoryMap.get(rel.sourceId);
+        const dmTargetId = inMemoryToDealMemoryMap.get(rel.targetId);
 
-        if (pgSourceId && pgTargetId) {
+        if (dmSourceId && dmTargetId) {
           await this.hypothesisRepo.addEdge({
-            sourceId: pgSourceId,
-            targetId: pgTargetId,
+            sourceId: dmSourceId,
+            targetId: dmTargetId,
             relationship: rel.relationship,
             strength: rel.strength,
             reasoning: rel.reasoning,
@@ -173,29 +181,36 @@ Output structured JSON with clear hierarchy and relationships.`,
         }
       }
 
+      // Update references to use stored hypotheses with deal memory IDs
+      const updatedRootThesis = storedHypotheses.find((h) => h.type === 'thesis');
+      if (!updatedRootThesis) {
+        throw new Error('Failed to find root thesis in stored hypotheses');
+      }
+
       // Emit hypothesis created events
       this.emitEvent(createEvent(
         'hypothesis.created',
         this.context.engagementId,
         {
-          hypothesis_id: rootThesis.id,
-          content: rootThesis.content,
+          hypothesis_id: updatedRootThesis.id,
+          content: updatedRootThesis.content,
           type: 'thesis',
-          hypothesis_count: hypotheses.length,
+          hypothesis_count: storedHypotheses.length,
         },
         this.config.id
       ));
 
       this.updateStatus('idle', 'Hypothesis tree built');
 
+      // Return stored hypotheses with correct IDs that match deal memory
       return this.createResult(true, {
-        rootThesis,
+        rootThesis: updatedRootThesis,
         decomposition,
-        hypotheses,
+        hypotheses: storedHypotheses,
         relationships,
         keyQuestions: decomposition.key_questions,
       }, {
-        reasoning: `Created hypothesis tree with ${hypotheses.length} nodes and ${relationships.length} relationships`,
+        reasoning: `Created hypothesis tree with ${storedHypotheses.length} nodes and ${relationships.length} relationships`,
         startTime,
       });
     } catch (error) {

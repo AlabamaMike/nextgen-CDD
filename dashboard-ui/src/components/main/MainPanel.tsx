@@ -4,6 +4,7 @@
 import { Briefcase } from 'lucide-react';
 import { EngagementDetail } from '../engagement/EngagementDetail';
 import { EngagementForm, type EngagementFormData } from '../engagement/EngagementForm';
+import { SkillsPage } from '../skills';
 import { useCreateEngagement } from '../../hooks/useEngagements';
 
 interface MainPanelProps {
@@ -64,6 +65,11 @@ export function MainPanel({ currentView, onViewChange }: MainPanelProps) {
   // Engagement Detail View
   if (isEngagementView && engagementId) {
     return <EngagementDetail engagementId={engagementId} />;
+  }
+
+  // Skills Library View
+  if (currentView === 'skills') {
+    return <SkillsPage />;
   }
 
   // Dashboard/Default View

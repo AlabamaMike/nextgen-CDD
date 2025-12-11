@@ -11,7 +11,7 @@ export interface Engagement {
     location?: string;
   };
   deal_type: 'buyout' | 'growth' | 'venture' | 'bolt-on';
-  status: 'pending' | 'research_active' | 'research_complete' | 'research_failed' | 'completed';
+  status: 'pending' | 'research_active' | 'research_complete' | 'research_failed' | 'completed' | 'draft' | 'active' | 'in_review';
   thesis?: {
     statement: string;
     submitted_at: number;
@@ -19,6 +19,12 @@ export interface Engagement {
   created_at: number;
   updated_at: number;
   created_by: string;
+  // Additional fields used by EngagementForm (populated by API client transform)
+  target_company?: string;
+  sector?: string;
+  description?: string;
+  deal_size?: number;
+  lead_partner?: string;
 }
 
 export interface EngagementFilters {
@@ -53,11 +59,13 @@ export interface UpdateEngagementRequest {
 export interface ResearchJob {
   id: string;
   engagement_id: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'partial';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'partial' | 'pending';
   started_at?: number;
   completed_at?: number;
   error_message?: string;
+  error?: string;
   confidence_score?: number;
+  progress?: number;
   results?: ResearchResults;
   config: ResearchConfig;
   created_at: number;
@@ -71,13 +79,28 @@ export interface ResearchConfig {
   searchDepth?: 'quick' | 'standard' | 'thorough';
 }
 
+export interface ResearchFinding {
+  text: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  source?: string;
+}
+
+export interface ResearchRisk {
+  category: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  mitigation?: string;
+}
+
 export interface ResearchResults {
-  verdict: 'proceed' | 'review' | 'reject';
+  verdict: 'proceed' | 'review' | 'reject' | 'validated' | 'refuted' | 'inconclusive';
   summary: string;
-  key_findings: string[];
-  risks: string[];
+  confidence: number;
+  key_findings: ResearchFinding[];
+  risks: ResearchRisk[];
   opportunities: string[];
   recommendations: string[];
+  evidence_summary?: string;
 }
 
 export interface StartResearchRequest {
@@ -114,8 +137,10 @@ export interface ProgressEvent {
         'evidence_found' | 'contradiction_detected' | 'round_complete' | 'job_complete' |
         'completed' | 'error';
   jobId: string;
-  timestamp: number;
+  timestamp: number | string;
   data: Record<string, unknown>;
+  message?: string;
+  progress?: number;
 }
 
 export interface HealthStatus {
@@ -288,4 +313,187 @@ export interface DocumentFilters {
   format?: DocumentFormat;
   limit?: number;
   offset?: number;
+}
+
+// =============================================================================
+// Contradiction Types
+// =============================================================================
+
+export type ContradictionSeverity = 'low' | 'medium' | 'high';
+export type ContradictionStatus = 'unresolved' | 'explained' | 'dismissed' | 'critical';
+
+export interface Contradiction {
+  id: string;
+  engagementId: string;
+  hypothesisId: string | null;
+  evidenceId: string | null;
+  description: string;
+  severity: ContradictionSeverity;
+  status: ContradictionStatus;
+  bearCaseTheme: string | null;
+  resolutionNotes: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContradictionFilters {
+  severity?: ContradictionSeverity;
+  status?: ContradictionStatus;
+  hypothesisId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ContradictionStats {
+  total: number;
+  bySeverity: Record<ContradictionSeverity, number>;
+  byStatus: Record<ContradictionStatus, number>;
+  resolutionRate: number;
+}
+
+export interface CreateContradictionRequest {
+  hypothesisId?: string;
+  evidenceId?: string;
+  description: string;
+  severity: ContradictionSeverity;
+  bearCaseTheme?: string;
+}
+
+export interface ResolveContradictionRequest {
+  status: 'explained' | 'dismissed';
+  resolutionNotes: string;
+}
+
+// =============================================================================
+// Stress Test Types
+// =============================================================================
+
+export type StressTestIntensity = 'light' | 'moderate' | 'aggressive';
+export type StressTestStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface StressTest {
+  id: string;
+  engagementId: string;
+  intensity: StressTestIntensity;
+  status: StressTestStatus;
+  vulnerabilitiesFound: number;
+  scenariosRun: number;
+  overallRiskScore: number | null;
+  results: StressTestResults | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface StressTestResults {
+  scenarios: Array<{
+    name: string;
+    description: string;
+    impact: 'low' | 'medium' | 'high' | 'critical';
+    likelihood: number;
+    findings: string[];
+  }>;
+  vulnerabilities: Array<{
+    hypothesis: string;
+    weakness: string;
+    severity: 'low' | 'medium' | 'high';
+    mitigation: string | null;
+  }>;
+  summary: string;
+  overallAssessment: 'robust' | 'moderate' | 'vulnerable' | 'critical';
+}
+
+export interface StressTestStats {
+  totalTests: number;
+  averageRiskScore: number;
+  lastTestAt: string | null;
+  vulnerabilitiesByIntensity: Record<StressTestIntensity, number>;
+}
+
+export interface RunStressTestRequest {
+  intensity: StressTestIntensity;
+}
+
+// =============================================================================
+// Metrics Types
+// =============================================================================
+
+export type MetricType =
+  | 'evidence_credibility_avg'
+  | 'source_diversity_score'
+  | 'hypothesis_coverage'
+  | 'contradiction_resolution_rate'
+  | 'overall_confidence'
+  | 'stress_test_vulnerability'
+  | 'research_completeness';
+
+export interface ResearchMetrics {
+  evidenceCredibilityAvg: number;
+  sourceDiversityScore: number;
+  hypothesisCoverage: number;
+  contradictionResolutionRate: number;
+  overallConfidence: number;
+  stressTestVulnerability: number;
+  researchCompleteness: number;
+  calculatedAt: string;
+}
+
+export interface MetricHistory {
+  metricType: MetricType;
+  values: Array<{
+    value: number;
+    recordedAt: string;
+  }>;
+}
+
+// =============================================================================
+// Skills Types
+// =============================================================================
+
+export type SkillCategory =
+  | 'market_sizing'
+  | 'competitive'
+  | 'financial'
+  | 'risk'
+  | 'operational'
+  | 'regulatory'
+  | 'customer'
+  | 'technology'
+  | 'general';
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  version: string;
+  successRate: number;
+  usageCount: number;
+  parameters: SkillParameter[];
+  implementation?: string;
+}
+
+export interface SkillParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'array';
+  description: string;
+  required: boolean;
+  default?: unknown;
+}
+
+export interface SkillExecutionRequest {
+  parameters: Record<string, unknown>;
+  context?: {
+    engagementId?: string;
+    hypothesisId?: string;
+  };
+}
+
+export interface SkillExecutionResult {
+  success: boolean;
+  output: unknown;
+  executionTime: number;
+  tokensUsed?: number;
 }

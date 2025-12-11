@@ -280,6 +280,226 @@ export class ThesisValidatorClient {
   async deleteDocument(engagementId: string, documentId: string): Promise<void> {
     await this.client.delete(`/api/v1/engagements/${engagementId}/documents/${documentId}`);
   }
+
+  // ==========================================================================
+  // Contradictions
+  // ==========================================================================
+
+  async getContradictions(
+    engagementId: string,
+    filters?: {
+      severity?: 'low' | 'medium' | 'high';
+      status?: 'unresolved' | 'explained' | 'dismissed' | 'critical';
+      hypothesisId?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<{ contradictions: any[]; total: number }> {
+    const params: Record<string, string | number> = {};
+    if (filters?.severity) params.severity = filters.severity;
+    if (filters?.status) params.status = filters.status;
+    if (filters?.hypothesisId) params.hypothesis_id = filters.hypothesisId;
+    if (filters?.limit) params.limit = filters.limit;
+    if (filters?.offset) params.offset = filters.offset;
+
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/contradictions`,
+      { params }
+    );
+    return response.data;
+  }
+
+  async getContradiction(
+    engagementId: string,
+    contradictionId: string
+  ): Promise<{ contradiction: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}`
+    );
+    return response.data;
+  }
+
+  async createContradiction(
+    engagementId: string,
+    data: {
+      hypothesisId?: string;
+      evidenceId?: string;
+      description: string;
+      severity: 'low' | 'medium' | 'high';
+      bearCaseTheme?: string;
+    }
+  ): Promise<{ contradiction: any }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/contradictions`,
+      data
+    );
+    return response.data;
+  }
+
+  async resolveContradiction(
+    engagementId: string,
+    contradictionId: string,
+    data: {
+      status: 'explained' | 'dismissed';
+      resolutionNotes: string;
+    }
+  ): Promise<{ contradiction: any; message: string }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}/resolve`,
+      data
+    );
+    return response.data;
+  }
+
+  async markContradictionCritical(
+    engagementId: string,
+    contradictionId: string
+  ): Promise<{ contradiction: any; message: string }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}/critical`
+    );
+    return response.data;
+  }
+
+  async deleteContradiction(
+    engagementId: string,
+    contradictionId: string
+  ): Promise<void> {
+    await this.client.delete(
+      `/api/v1/engagements/${engagementId}/contradictions/${contradictionId}`
+    );
+  }
+
+  async getContradictionStats(
+    engagementId: string
+  ): Promise<{ stats: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/contradictions/stats`
+    );
+    return response.data;
+  }
+
+  // ==========================================================================
+  // Stress Tests
+  // ==========================================================================
+
+  async getStressTests(
+    engagementId: string,
+    filters?: { status?: 'pending' | 'running' | 'completed' | 'failed'; limit?: number }
+  ): Promise<{ stressTests: any[]; count: number }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/stress-tests`,
+      { params: filters }
+    );
+    return response.data;
+  }
+
+  async getStressTest(
+    engagementId: string,
+    stressTestId: string
+  ): Promise<{ stressTest: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/stress-tests/${stressTestId}`
+    );
+    return response.data;
+  }
+
+  async getStressTestStats(
+    engagementId: string
+  ): Promise<{ stats: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/stress-tests/stats`
+    );
+    return response.data;
+  }
+
+  async runStressTest(
+    engagementId: string,
+    data: { intensity: 'light' | 'moderate' | 'aggressive' }
+  ): Promise<{ stressTest: any; message: string }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/stress-tests`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteStressTest(
+    engagementId: string,
+    stressTestId: string
+  ): Promise<void> {
+    await this.client.delete(
+      `/api/v1/engagements/${engagementId}/stress-tests/${stressTestId}`
+    );
+  }
+
+  // ==========================================================================
+  // Metrics
+  // ==========================================================================
+
+  async getMetrics(engagementId: string): Promise<{ metrics: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/metrics`
+    );
+    return response.data;
+  }
+
+  async calculateMetrics(
+    engagementId: string
+  ): Promise<{ metrics: any; message: string }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/metrics/calculate`
+    );
+    return response.data;
+  }
+
+  async getMetricHistory(
+    engagementId: string,
+    metricType?: string,
+    limit?: number
+  ): Promise<{ history: any[] }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/metrics/history`,
+      { params: { metric_type: metricType, limit } }
+    );
+    return response.data;
+  }
+
+  // ==========================================================================
+  // Skills
+  // ==========================================================================
+
+  async getSkills(filters?: {
+    category?: string;
+    query?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ skills: any[]; total: number }> {
+    const response = await this.client.get('/api/v1/skills', { params: filters });
+    return response.data;
+  }
+
+  async getSkill(skillId: string): Promise<{ skill: any }> {
+    const response = await this.client.get(`/api/v1/skills/${skillId}`);
+    return response.data;
+  }
+
+  async executeSkill(
+    skillId: string,
+    data: {
+      parameters: Record<string, unknown>;
+      context?: {
+        engagementId?: string;
+        hypothesisId?: string;
+      };
+    }
+  ): Promise<{ success: boolean; output: unknown; executionTime: number; tokensUsed?: number }> {
+    const response = await this.client.post(
+      `/api/v1/skills/${skillId}/execute`,
+      data
+    );
+    return response.data;
+  }
 }
 
 // Export a singleton instance

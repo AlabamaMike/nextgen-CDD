@@ -9,16 +9,33 @@ import { ResearchProgress } from '../research/ResearchProgress';
 import { ResearchResults } from '../research/ResearchResults';
 import { HypothesisTreeViz, HypothesisDetailPanel } from '../hypothesis';
 import { EvidenceExplorer, EvidenceDetailPanel, ResearchQualityCharts } from '../evidence';
+import { ContradictionList, ContradictionDetailPanel, ContradictionStats } from '../contradiction';
+import { StressTestRunner, StressTestResults, StressTestHistory } from '../stress-test';
+import { MetricsGauges, MetricsHistory } from '../metrics';
 import { useHypothesisTree, useUpdateHypothesis } from '../../hooks/useHypotheses';
 import { useEvidenceStats, useUpdateEvidence } from '../../hooks/useEvidence';
-import type { HypothesisNode, Evidence } from '../../types/api';
+import {
+  useContradictions,
+  useContradictionStats,
+  useResolveContradiction,
+  useMarkContradictionCritical,
+  useDeleteContradiction,
+} from '../../hooks/useContradictions';
+import {
+  useStressTests,
+  useStressTestStats,
+  useRunStressTest,
+  useDeleteStressTest,
+} from '../../hooks/useStressTests';
+import { useMetrics, useMetricHistory, useCalculateMetrics } from '../../hooks/useMetrics';
+import type { HypothesisNode, Evidence, Contradiction, StressTest } from '../../types/api';
 
 interface EngagementDetailProps {
   engagementId: string;
 }
 
 type WorkflowStep = 'submit' | 'progress' | 'results';
-type TabType = 'research' | 'hypotheses' | 'evidence';
+type TabType = 'research' | 'hypotheses' | 'evidence' | 'contradictions' | 'stress-tests' | 'metrics';
 
 export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   const { data: engagement, isLoading, error } = useEngagement(engagementId);
@@ -27,6 +44,8 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [selectedHypothesis, setSelectedHypothesis] = useState<HypothesisNode | null>(null);
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
+  const [selectedContradiction, setSelectedContradiction] = useState<Contradiction | null>(null);
+  const [selectedStressTest, setSelectedStressTest] = useState<StressTest | null>(null);
 
   // Hypothesis tree hooks
   const { data: hypothesisTree, isLoading: isLoadingTree } = useHypothesisTree(engagementId);
@@ -35,6 +54,24 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   // Evidence hooks
   const { data: evidenceStats, isLoading: isLoadingStats } = useEvidenceStats(engagementId);
   const updateEvidence = useUpdateEvidence(engagementId);
+
+  // Contradiction hooks
+  const { data: contradictionsData, isLoading: isLoadingContradictions } = useContradictions(engagementId);
+  const { data: contradictionStatsData } = useContradictionStats(engagementId);
+  const resolveContradiction = useResolveContradiction(engagementId);
+  const markCritical = useMarkContradictionCritical(engagementId);
+  const deleteContradiction = useDeleteContradiction(engagementId);
+
+  // Stress test hooks
+  const { data: stressTestsData, isLoading: isLoadingStressTests } = useStressTests(engagementId);
+  const { data: stressTestStatsData } = useStressTestStats(engagementId);
+  const runStressTest = useRunStressTest(engagementId);
+  const deleteStressTest = useDeleteStressTest(engagementId);
+
+  // Metrics hooks
+  const { data: metricsData, isLoading: isLoadingMetrics } = useMetrics(engagementId);
+  const { data: metricHistoryData } = useMetricHistory(engagementId);
+  const calculateMetrics = useCalculateMetrics(engagementId);
 
   const handleResearchStart = (jobId: string) => {
     setCurrentJobId(jobId);
@@ -182,6 +219,45 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
             `}
           >
             Evidence
+          </button>
+          <button
+            onClick={() => setActiveTab('contradictions')}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${
+                activeTab === 'contradictions'
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+              }
+            `}
+          >
+            Contradictions
+          </button>
+          <button
+            onClick={() => setActiveTab('stress-tests')}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${
+                activeTab === 'stress-tests'
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+              }
+            `}
+          >
+            Stress Tests
+          </button>
+          <button
+            onClick={() => setActiveTab('metrics')}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${
+                activeTab === 'metrics'
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+              }
+            `}
+          >
+            Metrics
           </button>
         </div>
       </div>
@@ -383,6 +459,121 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Contradictions Tab */}
+      {activeTab === 'contradictions' && (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Stats at top */}
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b border-surface-200 dark:border-surface-700">
+              {contradictionStatsData?.stats && (
+                <ContradictionStats stats={contradictionStatsData.stats} />
+              )}
+            </div>
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left: Contradiction List */}
+              <div className="w-1/2 border-r border-surface-200 dark:border-surface-700">
+                <ContradictionList
+                  contradictions={contradictionsData?.contradictions ?? []}
+                  selectedId={selectedContradiction?.id ?? null}
+                  onSelect={(id) => {
+                    const c = contradictionsData?.contradictions.find((x) => x.id === id);
+                    if (c) setSelectedContradiction(c);
+                  }}
+                  isLoading={isLoadingContradictions}
+                />
+              </div>
+              {/* Right: Detail Panel */}
+              <div className="w-1/2">
+                {selectedContradiction ? (
+                  <ContradictionDetailPanel
+                    contradiction={selectedContradiction}
+                    onResolve={(status, notes) => {
+                      resolveContradiction.mutate(
+                        { contradictionId: selectedContradiction.id, data: { status, resolutionNotes: notes } },
+                        { onSuccess: () => setSelectedContradiction(null) }
+                      );
+                    }}
+                    onMarkCritical={() => {
+                      markCritical.mutate(selectedContradiction.id);
+                    }}
+                    onDelete={() => {
+                      deleteContradiction.mutate(selectedContradiction.id, {
+                        onSuccess: () => setSelectedContradiction(null),
+                      });
+                    }}
+                    isResolving={resolveContradiction.isPending}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-surface-500 dark:text-surface-400">
+                    <p>Select a contradiction to view details</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stress Tests Tab */}
+      {activeTab === 'stress-tests' && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Runner */}
+              <div className="lg:col-span-1">
+                <StressTestRunner
+                  onRun={(intensity) => runStressTest.mutate(intensity)}
+                  isRunning={runStressTest.isPending}
+                  hasActiveTest={stressTestsData?.stressTests.some((t) => t.status === 'running')}
+                />
+              </div>
+              {/* Results */}
+              <div className="lg:col-span-2">
+                {selectedStressTest ? (
+                  <StressTestResults stressTest={selectedStressTest} />
+                ) : stressTestsData?.stressTests[0] ? (
+                  <StressTestResults stressTest={stressTestsData.stressTests[0]} />
+                ) : (
+                  <div className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-8">
+                    <div className="text-center text-surface-500 dark:text-surface-400">
+                      <p>No stress test results yet</p>
+                      <p className="text-sm mt-1">Run a stress test to see results</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* History */}
+            <StressTestHistory
+              stressTests={stressTestsData?.stressTests ?? []}
+              stats={stressTestStatsData?.stats}
+              onSelect={setSelectedStressTest}
+              onDelete={(id) => deleteStressTest.mutate(id)}
+              selectedId={selectedStressTest?.id}
+              isLoading={isLoadingStressTests}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Metrics Tab */}
+      {activeTab === 'metrics' && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <MetricsGauges
+              metrics={metricsData?.metrics ?? null}
+              onRecalculate={() => calculateMetrics.mutate()}
+              isRecalculating={calculateMetrics.isPending}
+              isLoading={isLoadingMetrics}
+            />
+            <MetricsHistory
+              history={metricHistoryData?.history ?? []}
+              isLoading={isLoadingMetrics}
+            />
           </div>
         </div>
       )}

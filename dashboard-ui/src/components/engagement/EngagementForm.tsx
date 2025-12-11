@@ -18,28 +18,28 @@ export interface EngagementFormData {
   description?: string;
   deal_size?: number;
   lead_partner?: string;
-  status: 'draft' | 'active' | 'in_review' | 'completed';
+  status: 'draft' | 'active' | 'in_review' | 'completed' | 'pending' | 'research_active' | 'research_complete' | 'research_failed';
 }
 
 export function EngagementForm({ engagement, onSubmit, onCancel, isSubmitting }: EngagementFormProps) {
   const [formData, setFormData] = useState<EngagementFormData>({
-    target_company: engagement?.target_company || '',
-    sector: engagement?.sector || '',
-    description: engagement?.description || '',
-    deal_size: engagement?.deal_size || undefined,
-    lead_partner: engagement?.lead_partner || '',
-    status: engagement?.status || 'draft',
+    target_company: engagement?.target_company ?? '',
+    sector: engagement?.sector ?? '',
+    description: engagement?.description ?? '',
+    deal_size: engagement?.deal_size,
+    lead_partner: engagement?.lead_partner ?? '',
+    status: engagement?.status ?? 'draft',
   });
 
   useEffect(() => {
     if (engagement) {
       setFormData({
-        target_company: engagement.target_company,
-        sector: engagement.sector || '',
-        description: engagement.description || '',
-        deal_size: engagement.deal_size || undefined,
-        lead_partner: engagement.lead_partner || '',
-        status: engagement.status,
+        target_company: engagement.target_company ?? '',
+        sector: engagement.sector ?? '',
+        description: engagement.description ?? '',
+        deal_size: engagement.deal_size,
+        lead_partner: engagement.lead_partner ?? '',
+        status: engagement.status ?? 'draft',
       });
     }
   }, [engagement]);

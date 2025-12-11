@@ -13,9 +13,9 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { useEngagements } from '../../hooks/useEngagements';
-import type { Engagement } from '../../types/api';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -23,11 +23,15 @@ interface SidebarProps {
   currentView?: string;
 }
 
-const statusIcons = {
+const statusIcons: Record<string, React.ReactNode> = {
   active: <Clock className="h-3 w-3 text-primary-500" />,
   in_review: <AlertTriangle className="h-3 w-3 text-yellow-500" />,
   completed: <CheckCircle2 className="h-3 w-3 text-green-500" />,
   draft: <FileText className="h-3 w-3 text-surface-400" />,
+  pending: <Clock className="h-3 w-3 text-surface-400" />,
+  research_active: <Loader2 className="h-3 w-3 text-primary-500 animate-spin" />,
+  research_complete: <CheckCircle2 className="h-3 w-3 text-green-500" />,
+  research_failed: <AlertTriangle className="h-3 w-3 text-red-500" />,
 };
 
 export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboard' }: SidebarProps) {
@@ -39,6 +43,7 @@ export function Sidebar({ collapsed = false, onNavigate, currentView = 'dashboar
     { id: 'research', icon: Search, label: 'Research' },
     { id: 'reports', icon: FileText, label: 'Reports' },
     { id: 'analytics', icon: BarChart3, label: 'Analytics' },
+    { id: 'skills', icon: Sparkles, label: 'Skills Library' },
   ];
 
   const bottomItems = [

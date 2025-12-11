@@ -21,7 +21,7 @@ export function useStartResearch() {
   return useMutation({
     mutationFn: ({ engagementId, thesis, config }: StartResearchParams) =>
       apiClient.startResearch(engagementId, thesis, config),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       // Invalidate engagements to refetch with updated data
       queryClient.invalidateQueries({ queryKey: ['engagements'] });
       queryClient.invalidateQueries({ queryKey: ['engagement', variables.engagementId] });
@@ -37,9 +37,10 @@ export function useResearchJob(engagementId: string | null, jobId: string | null
     queryKey: ['researchJob', engagementId, jobId],
     queryFn: () => apiClient.getResearchJob(engagementId!, jobId!),
     enabled: !!engagementId && !!jobId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Poll every 2 seconds if job is still running
-      if (data?.status === 'pending' || data?.status === 'running') {
+      const status = query.state?.data?.status;
+      if (status === 'pending' || status === 'running') {
         return 2000;
       }
       return false;

@@ -62,7 +62,7 @@ export function ResearchProgress({ engagementId, jobId, onComplete }: ResearchPr
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = (timestamp: string | number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
 

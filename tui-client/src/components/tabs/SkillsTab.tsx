@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { ThesisValidatorClient } from '../../api/client.js';
-import type { SkillData, SkillCategory } from '../../types/api.js';
+import type { SkillData, SkillCategory, SkillExecuteResult, SkillExecuteRequest } from '../../types/api.js';
 import { useInputContext } from '../../context/InputContext.js';
+import { SkillExecuteForm } from '../forms/SkillExecuteForm.js';
 
 interface SkillsTabProps {
   serverUrl: string;
   authToken?: string | undefined;
 }
 
-type ViewMode = 'list' | 'detail' | 'execute';
+type ViewMode = 'list' | 'detail' | 'execute_params' | 'execute_result';
 
-const CATEGORIES: Array<SkillCategory | 'all'> = ['all', 'analysis', 'research', 'synthesis', 'validation', 'other'];
+const CATEGORIES: Array<SkillCategory | 'all'> = ['all', 'analysis', 'research', 'synthesis', 'validation', 'other', 'market_sizing', 'competitive', 'financial', 'risk', 'operational', 'regulatory', 'customer', 'technology', 'general'];
 
 function getCategoryColor(category: SkillCategory): string {
   switch (category) {
@@ -19,6 +20,15 @@ function getCategoryColor(category: SkillCategory): string {
     case 'research': return 'green';
     case 'synthesis': return 'yellow';
     case 'validation': return 'magenta';
+    case 'market_sizing': return 'blue';
+    case 'competitive': return 'red';
+    case 'financial': return 'green';
+    case 'risk': return 'red';
+    case 'operational': return 'yellow';
+    case 'regulatory': return 'magenta';
+    case 'customer': return 'cyan';
+    case 'technology': return 'blue';
+    case 'general': return 'white';
     case 'other': return 'gray';
   }
 }
@@ -35,6 +45,8 @@ export function SkillsTab({ serverUrl, authToken }: SkillsTabProps): React.React
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState<SkillCategory | 'all'>('all');
   const [message, setMessage] = useState<string | null>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [execResult, setExecResult] = useState<SkillExecuteResult | null>(null);
 
   const { isInputActive } = useInputContext();
 
@@ -78,16 +90,16 @@ export function SkillsTab({ serverUrl, authToken }: SkillsTabProps): React.React
     setSelectedIndex(0);
   };
 
-  // Execute skill (placeholder - would need parameter collection)
-  const handleExecuteSkill = async () => {
+  // Execute skill with parameters
+  const handleExecuteSkill = async (request: SkillExecuteRequest) => {
     if (!selectedSkill) return;
 
     try {
+      setIsExecuting(true);
       setMessage(`Executing ${selectedSkill.name}...`);
-      const result = await apiClient.executeSkill(selectedSkill.id, {
-        parameters: {},
-        context: {},
-      });
+      const result = await apiClient.executeSkill(selectedSkill.id, request);
+      setExecResult(result);
+      setViewMode('execute_result');
       if (result.success) {
         setMessage(`Skill executed successfully in ${result.execution_time_ms}ms`);
       } else {
@@ -95,7 +107,16 @@ export function SkillsTab({ serverUrl, authToken }: SkillsTabProps): React.React
       }
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setViewMode('detail');
+    } finally {
+      setIsExecuting(false);
     }
+  };
+
+  // Start parameter collection before execution
+  const startSkillExecution = () => {
+    if (!selectedSkill) return;
+    setViewMode('execute_params');
   };
 
   // Keyboard input
@@ -119,14 +140,19 @@ export function SkillsTab({ serverUrl, authToken }: SkillsTabProps): React.React
         cycleCategory();
       }
       if (input === 'x' || input === 'X') {
-        void handleExecuteSkill();
+        startSkillExecution();
       }
     } else if (viewMode === 'detail') {
       if (key.escape || input === 'b' || input === 'B') {
         setViewMode('list');
       }
       if (input === 'x' || input === 'X') {
-        void handleExecuteSkill();
+        startSkillExecution();
+      }
+    } else if (viewMode === 'execute_result') {
+      if (key.escape || input === 'b' || input === 'B') {
+        setViewMode('detail');
+        setExecResult(null);
       }
     }
   });
@@ -197,6 +223,68 @@ export function SkillsTab({ serverUrl, authToken }: SkillsTabProps): React.React
 
         <Box marginTop={1} borderStyle="single" paddingX={1}>
           <Text color="gray">[X] Execute  [B/ESC] Back</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Execute params view - show form for parameter collection
+  if (viewMode === 'execute_params' && selectedSkill) {
+    return (
+      <SkillExecuteForm
+        skill={selectedSkill}
+        onSubmit={handleExecuteSkill}
+        onCancel={() => setViewMode('detail')}
+        isExecuting={isExecuting}
+      />
+    );
+  }
+
+  // Execute result view - show execution results
+  if (viewMode === 'execute_result' && selectedSkill && execResult) {
+    return (
+      <Box flexDirection="column">
+        <Text bold color="cyan">Execution Result: {selectedSkill.name}</Text>
+        <Text color="gray">Press B or ESC to go back</Text>
+        <Text>{''}</Text>
+
+        <Box flexDirection="column" marginY={1}>
+          <Box>
+            <Text bold>Status: </Text>
+            <Text color={execResult.success ? 'green' : 'red'}>
+              {execResult.success ? '✓ Success' : '✗ Failed'}
+            </Text>
+          </Box>
+          <Box>
+            <Text bold>Execution Time: </Text>
+            <Text>{execResult.execution_time_ms}ms</Text>
+          </Box>
+        </Box>
+
+        <Text bold>Output:</Text>
+        <Box
+          flexDirection="column"
+          marginTop={1}
+          paddingX={1}
+          paddingY={1}
+          borderStyle="single"
+          borderColor={execResult.success ? 'green' : 'red'}
+        >
+          <Text wrap="wrap">
+            {typeof execResult.output === 'string'
+              ? execResult.output
+              : JSON.stringify(execResult.output, null, 2)}
+          </Text>
+        </Box>
+
+        {message && (
+          <Box marginY={1}>
+            <Text color={message.startsWith('Error') ? 'red' : 'green'}>{message}</Text>
+          </Box>
+        )}
+
+        <Box marginTop={1} borderStyle="single" paddingX={1}>
+          <Text color="gray">[B/ESC] Back to Details</Text>
         </Box>
       </Box>
     );

@@ -410,7 +410,25 @@ export interface MetricsHistoryResponse {
 
 // ============== Skills Types ==============
 
-export type SkillCategory = 'analysis' | 'research' | 'synthesis' | 'validation' | 'other';
+export type SkillCategory = 'analysis' | 'research' | 'synthesis' | 'validation' | 'other' | 'market_sizing' | 'competitive' | 'financial' | 'risk' | 'operational' | 'regulatory' | 'customer' | 'technology' | 'general';
+
+export type SkillParameterType = 'string' | 'number' | 'boolean' | 'array' | 'object';
+
+export interface SkillParameterValidation {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  enum?: string[];
+}
+
+export interface SkillParameter {
+  name: string;
+  type: SkillParameterType;
+  description: string;
+  required: boolean;
+  default?: unknown;
+  validation?: SkillParameterValidation;
+}
 
 export interface SkillData {
   id: string;
@@ -420,7 +438,17 @@ export interface SkillData {
   version: string;
   success_rate: number;
   usage_count: number;
+  parameters?: SkillParameter[];
   similarity_score?: number;
+}
+
+export interface SkillTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  parameters: SkillParameter[];
+  default_values?: Record<string, unknown>;
 }
 
 export interface SkillFilters {

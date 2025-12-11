@@ -36,6 +36,7 @@ import type {
   SkillFilters,
   SkillExecuteRequest,
   SkillExecuteResult,
+  SkillTemplate,
   ComparableData,
   DocumentData,
   DocumentFilters,
@@ -641,6 +642,36 @@ export class ThesisValidatorClient {
       { params: { query, ...options } }
     );
     return response.data.comparables;
+  }
+
+  /**
+   * Get skill templates
+   */
+  async getSkillTemplates(): Promise<{ templates: SkillTemplate[] }> {
+    const response = await this.http.get<{ templates: SkillTemplate[] }>(
+      '/api/v1/skills/templates'
+    );
+    return response.data;
+  }
+
+  /**
+   * Get comparables by sector
+   */
+  async getComparablesBySector(sector: string): Promise<ComparableData[]> {
+    const response = await this.http.get<{ comparables: ComparableData[] }>(
+      `/api/v1/skills/comparables/sectors/${encodeURIComponent(sector)}`
+    );
+    return response.data.comparables;
+  }
+
+  /**
+   * Get comparable methodologies
+   */
+  async getComparableMethodologies(): Promise<{ methodologies: string[] }> {
+    const response = await this.http.get<{ methodologies: string[] }>(
+      '/api/v1/skills/comparables/methodologies'
+    );
+    return response.data;
   }
 
   // ============== Document Methods ==============

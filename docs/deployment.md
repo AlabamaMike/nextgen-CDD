@@ -311,10 +311,9 @@ cd nextgen-CDD
 This uses the included `cloudbuild.yaml` which runs tests and deploys automatically:
 
 ```bash
-cd thesis-validator
-
+# Run from the repo root (nextgen-CDD/), NOT from thesis-validator/
 # Submit build (this builds, tests, and deploys)
-gcloud builds submit --config=cloudbuild.yaml \
+gcloud builds submit --config=thesis-validator/cloudbuild.yaml \
   --substitutions=_REGION=$REGION,_REPOSITORY=$SERVICE_NAME,_SERVICE_NAME=$SERVICE_NAME
 ```
 

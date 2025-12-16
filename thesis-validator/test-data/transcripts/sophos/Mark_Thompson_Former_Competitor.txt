@@ -1,0 +1,34 @@
+Competitive Intelligence Interview
+Date: December 11, 2024
+
+Expert: Mark Thompson
+Background: Former Product Lead at CrowdStrike, now security consultant
+Topic: Competitive analysis of Sophos
+
+Interviewer: Mark, from your experience at CrowdStrike, how did you view Sophos as a competitor?
+
+Mark Thompson: We didn't view Sophos as a direct competitor initially - we focused on enterprise while they owned mid-market. But that changed as both companies expanded. What surprised me was Sophos's technical depth. Their deep learning detection was ahead of where we expected them to be.
+
+Interviewer: Where does Sophos have advantages?
+
+Mark Thompson: Their synchronized security approach is genuinely differentiated. When endpoint, network, and cloud share intelligence in real-time, you get better detection with fewer false positives. We tried to achieve similar integration but it was harder when you're primarily an endpoint company. Their channel also gives them reach we couldn't match economically.
+
+Interviewer: Where are they weaker?
+
+Mark Thompson: Brand awareness in enterprise, though they're improving. Their sales cycle can be longer because they rely on partners rather than direct reps who know the product deeply. And their pricing can be confusing - different packaging and options versus our simple per-endpoint model.
+
+Interviewer: How does their technology compare?
+
+Mark Thompson: Honestly, it's closer than most people realize. Their false positive rate is actually better than ours was - they invested heavily in precision. Detection rates are comparable. Where CrowdStrike wins is in the threat intelligence feed and brand recognition that drives enterprise deals.
+
+Interviewer: What would concern you if you were competing against Sophos?
+
+Mark Thompson: Their MDR service is very sticky. Once customers experience that level of managed security, they don't want to give it up. Also, the Thoma Bravo ownership gives them patient capital to invest for the long term. They don't have quarterly earnings pressure like public companies.
+
+Interviewer: Where do you see them heading?
+
+Mark Thompson: I'd expect them to push harder into enterprise, expand internationally, and double down on AI capabilities. They have the technology and channel to be a major player. The question is whether they can execute at the pace the market demands.
+
+Interviewer: Valuable competitive perspective. Thank you, Mark.
+
+Mark Thompson: Happy to share what I've observed. It's a dynamic market.

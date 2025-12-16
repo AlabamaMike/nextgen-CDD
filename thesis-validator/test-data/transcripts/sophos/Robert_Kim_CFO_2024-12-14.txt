@@ -1,0 +1,32 @@
+Financial Discussion with Robert Kim
+Position: Chief Financial Officer
+Company: Sophos Group
+Date: December 14, 2024
+
+Interviewer: Robert, can you give us an overview of Sophos's financial profile?
+
+Robert Kim: We're now a private company, so I'll share what I can directionally. We've achieved consistent double-digit revenue growth, with ARR as our primary metric. Our SaaS transition is essentially complete - over 85% of revenue is now recurring subscription. This gives us excellent revenue visibility and cash flow predictability.
+
+Interviewer: How would you characterize the gross margin profile?
+
+Robert Kim: Software gross margins are in the high 70s to low 80s. Our MDR service has slightly lower margins due to the human analyst component, but it's still accretive and drives significant upsell. The blended gross margin has improved 300 basis points over three years through automation and scale.
+
+Interviewer: What about sales efficiency?
+
+Robert Kim: Our magic number is consistently above 1.0, meaning we payback CAC within a year. The channel model helps here - partner development costs are lower than building a direct sales force. Customer acquisition costs have actually declined 20% while average deal size increased 15%.
+
+Interviewer: How does customer retention look?
+
+Robert Kim: Net revenue retention is above 110%, driven by land-and-expand. Gross churn is under 5% annually. The mid-market sweet spot helps - these customers are stable and growing, unlike smaller businesses that have higher failure rates.
+
+Interviewer: What's the R&D investment strategy?
+
+Robert Kim: We invest 18-20% of revenue in R&D, which is at the higher end for security software. About 60% goes to product enhancement, 25% to AI/ML capabilities, and 15% to platform infrastructure. The Thoma Bravo ownership has allowed us to take a longer-term view on R&D investments.
+
+Interviewer: What financial metrics do you focus on?
+
+Robert Kim: ARR growth, net retention, rule of 40, and free cash flow margin. We're solidly above the rule of 40 threshold and generating healthy cash flow despite continued investment. The goal is sustainable, profitable growth - not growth at all costs.
+
+Interviewer: Thank you for the financial perspective.
+
+Robert Kim: Happy to help. Let me know if you need any clarification.

@@ -12,6 +12,7 @@ import { EvidenceExplorer, EvidenceDetailPanel, ResearchQualityCharts } from '..
 import { ContradictionList, ContradictionDetailPanel, ContradictionStats } from '../contradiction';
 import { StressTestRunner, StressTestResults, StressTestHistory } from '../stress-test';
 import { MetricsGauges, MetricsHistory } from '../metrics';
+import { ExpertCallPanel } from '../expert-call';
 import { useHypothesisTree, useUpdateHypothesis } from '../../hooks/useHypotheses';
 import { useEvidenceStats, useUpdateEvidence } from '../../hooks/useEvidence';
 import {
@@ -35,7 +36,7 @@ interface EngagementDetailProps {
 }
 
 type WorkflowStep = 'submit' | 'progress' | 'results';
-type TabType = 'research' | 'hypotheses' | 'evidence' | 'contradictions' | 'stress-tests' | 'metrics';
+type TabType = 'research' | 'hypotheses' | 'evidence' | 'contradictions' | 'stress-tests' | 'expert-calls' | 'metrics';
 
 export function EngagementDetail({ engagementId }: EngagementDetailProps) {
   const { data: engagement, isLoading, error } = useEngagement(engagementId);
@@ -245,6 +246,19 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
             `}
           >
             Stress Tests
+          </button>
+          <button
+            onClick={() => setActiveTab('expert-calls')}
+            className={`
+              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${
+                activeTab === 'expert-calls'
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+              }
+            `}
+          >
+            Expert Calls
           </button>
           <button
             onClick={() => setActiveTab('metrics')}
@@ -556,6 +570,25 @@ export function EngagementDetail({ engagementId }: EngagementDetailProps) {
               onDelete={(id) => deleteStressTest.mutate(id)}
               selectedId={selectedStressTest?.id}
               isLoading={isLoadingStressTests}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Expert Calls Tab */}
+      {activeTab === 'expert-calls' && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto">
+            <ExpertCallPanel
+              engagementId={engagementId}
+              onHypothesisClick={(hypothesisId) => {
+                // Navigate to hypothesis tab and select the hypothesis
+                const hypothesis = hypothesisTree?.hypotheses.find((h) => h.id === hypothesisId);
+                if (hypothesis) {
+                  setSelectedHypothesis(hypothesis);
+                  setActiveTab('hypotheses');
+                }
+              }}
             />
           </div>
         </div>

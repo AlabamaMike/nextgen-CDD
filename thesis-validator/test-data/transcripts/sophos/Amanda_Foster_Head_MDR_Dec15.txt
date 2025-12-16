@@ -1,0 +1,31 @@
+Expert Interview
+Interviewee: Amanda Foster, Head of MDR Services
+Date: December 15, 2024
+
+Interviewer: Amanda, can you explain Sophos's managed detection and response offering?
+
+Amanda Foster: Sophos MDR is a fully-managed service where our security experts monitor customer environments 24/7/365. We have over 500 security analysts across global SOCs in the UK, US, and Australia providing follow-the-sun coverage. Unlike other MDR services that just alert, we take action - we'll contain threats, remediate compromises, and hunt for hidden adversaries.
+
+Interviewer: What makes Sophos MDR different from competitors?
+
+Amanda Foster: Three things stand out. First, our response time - average time to contain a threat is 38 minutes. Second, our full-spectrum visibility across endpoint, network, email, and cloud. Third, our threat hunting is proactive - we don't wait for alerts. Our hunters actively search for suspicious patterns using behavioral analytics and threat intelligence.
+
+Interviewer: How is the service priced?
+
+Amanda Foster: We offer tiered packages based on coverage and response level. The entry tier provides monitoring and alerting with assisted response. Mid-tier adds full response capabilities. Top tier includes dedicated threat hunting and quarterly business reviews. Pricing is per-endpoint with volume discounts for larger deployments.
+
+Interviewer: What's the customer profile for MDR?
+
+Amanda Foster: It's broad, actually. Small businesses without security staff use it as their virtual SOC. Mid-market companies augment lean security teams. Even enterprises use it for after-hours coverage or specific high-value environments. Our fastest-growing segment is mid-market - companies with 1,000-5,000 endpoints that need enterprise-grade protection.
+
+Interviewer: Can you share any outcome metrics?
+
+Amanda Foster: Absolutely. Customers see an average 90% reduction in dwell time - the time an attacker remains undetected. Mean time to respond drops from days to minutes. And the cost savings are significant - building an equivalent internal capability would cost 3-5x our service fee.
+
+Interviewer: What's the roadmap for MDR?
+
+Amanda Foster: We're expanding coverage to include OT/IoT environments and deeper cloud integration. Also building more automation so our analysts can focus on true threats while routine tasks are handled by AI. The vision is human-AI collaboration at scale.
+
+Interviewer: Excellent overview. Thank you, Amanda.
+
+Amanda Foster: Thanks for the opportunity to share what we're building.

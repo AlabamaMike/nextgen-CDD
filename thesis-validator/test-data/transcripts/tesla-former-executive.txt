@@ -1,0 +1,43 @@
+Expert Call Transcript: Former Tesla Executive
+Recorded: 2025-12-15
+Duration: 55 minutes
+
+Interviewer: Thank you for making time. You spent seven years at Tesla in senior operations roles. What's your perspective on the company's current state?
+
+Michael Torres (Former VP Operations, Tesla): Thanks for reaching out. I left Tesla in 2023, so my information is somewhat dated, but I stay connected with former colleagues. The company culture has shifted significantly in the post-hypergrowth phase.
+
+Interviewer: How would you characterize that shift?
+
+Michael Torres: When I joined in 2016, it was pure survival mode - could we actually mass-produce the Model 3? That crisis mentality drove incredible innovation. Now Tesla is a $50+ billion revenue company with 140,000 employees. The scrappy startup energy is harder to maintain at that scale.
+
+Interviewer: What about Elon's leadership style?
+
+Michael Torres: Elon is... unique. His ability to drive impossible timelines and inspire people is unmatched. But he's also extremely demanding and can be erratic. The Twitter acquisition was a massive distraction in 2022-2023. His political activities have alienated some customers and employees. It's a real tension.
+
+Interviewer: Has there been executive turnover?
+
+Michael Torres: Significant turnover at senior levels. The CFO, head of autopilot, head of powertrain, investor relations - many key people have left. Tesla has always had high turnover, but losing institutional knowledge hurts as challenges mount. The bench isn't as deep as it should be.
+
+Interviewer: Tell us about manufacturing capabilities.
+
+Michael Torres: Manufacturing is genuinely Tesla's strength. The casting innovations - single-piece front and rear castings - were revolutionary. The paint shop efficiency, the battery pack assembly lines, the vertical integration of seats and electronics. Tesla can build vehicles faster and with fewer people than traditional automakers.
+
+Interviewer: What about quality?
+
+Michael Torres: That's been a persistent issue. Tesla has improved dramatically from the early Model 3 days, but they still have more quality complaints than premium competitors. Panel gaps, paint defects, software glitches. The "production hell" mentality sometimes prioritized volume over fit and finish.
+
+Interviewer: How do you assess the Cybertruck launch?
+
+Michael Torres: Classic Tesla - ambitious design that pushed manufacturing to its limits. The stainless steel body is harder to work with than expected. Ramp has been slower than Model Y was. But they'll figure it out. Tesla always eventually figures out manufacturing challenges.
+
+Interviewer: What's your view on their software capabilities?
+
+Michael Torres: Best in the industry for OTA updates and in-car software. The Autopilot/FSD team has enormous data advantages. But the "vision-only" approach for FSD has limitations. Removing radar was controversial internally. Some of us thought it was premature.
+
+Interviewer: What would you advise current Tesla leadership?
+
+Michael Torres: Focus. Elon has too many companies and too many Tesla projects. The robotaxi, Optimus robot, Dojo supercomputer, Semi, next-gen vehicle - it's too much. I'd double down on the core auto business and energy storage. Prove you can defend market share before chasing moonshots.
+
+Interviewer: Thank you for that candid assessment.
+
+Michael Torres: Sure. Tesla remains a remarkable company despite its challenges. I'm proud of what we built there.

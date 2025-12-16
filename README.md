@@ -2,7 +2,7 @@
 
 A multi-agent AI system for private equity commercial and technical due diligence. Thesis Validator helps investment teams validate, pressure-test, and learn from investment theses using specialized AI agents.
 
-**Last Updated:** 2025-12-12
+**Last Updated:** 2025-12-16
 
 ## Overview
 
@@ -209,6 +209,108 @@ npm install
 npm run dev -- --server http://localhost:3000
 ```
 
+## Expert Calls
+
+The Expert Calls feature enables you to upload and analyze transcripts from expert interviews, extracting key insights, contradictions, and follow-up questions that inform your investment thesis.
+
+### Overview
+
+After conducting expert interviews (customers, competitors, industry analysts, former employees), upload the call transcripts to have the AI analyze them and extract:
+
+- **Key Insights** - Important findings with confidence scores
+- **Data Points** - Specific metrics, numbers, and facts mentioned
+- **Contradictions** - Points that conflict with your thesis or other evidence
+- **Follow-up Questions** - Suggested areas for further investigation
+- **Speaker Profiles** - Summary of each speaker's perspective and expertise
+- **Synthesized Summary** - Overall analysis linking insights to your hypotheses
+
+### Uploading Transcripts
+
+Navigate to an engagement and click the **Expert Calls** tab.
+
+#### Single Upload Mode
+
+For uploading one transcript at a time with full metadata control:
+
+1. Select **Single** mode (default)
+2. Optionally set the **Call Date** (auto-detected if not provided)
+3. **Upload a file** (.txt, .vtt, .srt) or **paste transcript text** directly
+4. Optionally add **Speaker Labels** to map generic names (e.g., "Speaker 1" → "John Smith, CEO")
+5. Optionally add **Focus Areas** to guide the analysis
+6. Click **Process Transcript**
+
+#### Batch Upload Mode
+
+For uploading multiple transcripts at once:
+
+1. Select **Batch** mode
+2. Click to select multiple files or drag-and-drop
+3. Optionally add **Focus Areas** (applied to all transcripts)
+4. Click **Process All**
+
+**Batch features:**
+- Automatic duplicate detection (skips already-processed transcripts)
+- Metadata extraction from filenames and content
+- Progress tracking for each file
+
+### Transcript Formats
+
+The system accepts transcripts in these formats:
+
+**Plain text with speaker labels:**
+```
+Interviewer: Thank you for joining us today.
+John Smith: Happy to be here.
+```
+
+**Bracketed speaker format:**
+```
+[Interviewer] Thank you for joining us today.
+[John Smith] Happy to be here.
+```
+
+**VTT/SRT subtitles** (timestamps are preserved)
+
+### Automatic Metadata Extraction
+
+The system automatically extracts information from both **file content** and **filenames**:
+
+**From transcript content:**
+- Interviewee name and title (from headers like "Interviewee: John Smith, CEO")
+- Interview date (from "Date: December 15, 2024")
+- Role and organization
+
+**From filenames:**
+Recommended naming patterns:
+```
+John_Smith_CEO_2024-12-15.txt
+customer_reference_Dec14_Healthcare.txt
+Emily_Wilson_Analyst_2024-12-15.txt
+```
+
+The system parses names, roles, dates, and other metadata from common filename conventions.
+
+### Viewing Results
+
+After processing, click on any expert call to view:
+
+- **Original Transcript** - Full text with speaker attribution
+- **Key Insights** - Color-coded by type (key point, contradiction, data point)
+- **Consensus Points** - Areas of agreement across experts
+- **Divergence Points** - Areas where experts disagree
+- **Follow-up Questions** - AI-suggested next steps
+- **Synthesized Summary** - Overall analysis
+
+Insights are linked to relevant hypotheses when applicable, allowing you to see how expert input affects your thesis confidence.
+
+### Best Practices
+
+1. **Use descriptive filenames** - Include interviewee name and date for automatic metadata extraction
+2. **Label speakers clearly** - Use consistent speaker names throughout the transcript
+3. **Add focus areas** - Guide the AI to pay attention to specific topics relevant to your thesis
+4. **Upload in batches** - When processing multiple calls, batch upload saves time and automatically deduplicates
+5. **Review contradictions** - Expert calls often surface thesis-challenging information
+
 ## Getting Started
 
 ### Prerequisites
@@ -347,6 +449,15 @@ npm run dev -- --server http://localhost:3000
 | `GET` | `/api/v1/engagements/:id/research/status` | Get research status |
 | `POST` | `/api/v1/engagements/:id/research/stop` | Stop research workflow |
 
+#### Expert Calls
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/engagements/:id/expert-calls` | List expert calls |
+| `POST` | `/api/v1/engagements/:id/expert-calls` | Process single transcript |
+| `POST` | `/api/v1/engagements/:id/expert-calls/batch` | Process multiple transcripts |
+| `GET` | `/api/v1/engagements/:id/expert-calls/:cid` | Get call details and summary |
+| `DELETE` | `/api/v1/engagements/:id/expert-calls/:cid` | Delete expert call |
+
 ### WebSocket Events
 
 Connect to `/ws` for real-time updates:
@@ -359,6 +470,9 @@ Connect to `/ws` for real-time updates:
 | `workflow:progress` | Workflow step completion |
 | `research:complete` | Research workflow finished |
 | `stress-test:progress` | Stress test progress updates |
+| `expert_call.started` | Expert call processing started |
+| `expert_call.insight` | New insight extracted from transcript |
+| `expert_call.ended` | Expert call processing completed |
 
 ## Development Commands
 

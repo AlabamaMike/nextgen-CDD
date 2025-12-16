@@ -1,0 +1,28 @@
+Name: Lisa Wang
+Role: Director of Product Management
+Organization: Sophos
+Interview Date: December 13, 2024
+
+Interviewer: Lisa, can you tell us about Sophos's product strategy?
+
+Lisa Wang: We follow what we call "adaptive security" - the idea that security solutions must evolve as quickly as threats do. Our product roadmap is heavily influenced by threat intelligence from our SophosLabs team. Every major product decision starts with the question: what threats are our customers facing today, and what will they face tomorrow?
+
+Interviewer: How do you balance feature development versus simplicity?
+
+Lisa Wang: That's the eternal tension in security software. Our philosophy is "powerful by default, customizable when needed." Out of the box, Sophos products should protect 95% of threats without configuration. But for security teams that want granular control, every setting is accessible. We run extensive usability testing to ensure even advanced features are intuitive.
+
+Interviewer: What differentiates Sophos Intercept X from competitors?
+
+Lisa Wang: Several things. Deep learning malware detection catches threats traditional signatures miss - we block 70% more zero-days than signature-only products. CryptoGuard monitors for ransomware behavior and can roll back encrypted files. Exploit prevention stops living-off-the-land attacks. And it all runs with minimal performance impact - under 3% CPU overhead.
+
+Interviewer: How do you approach customer feedback?
+
+Lisa Wang: We have a tiered approach. Our beta program has 5,000+ active participants who test new features. Our customer advisory board represents our top 50 enterprise accounts. And our support team logs every feature request - we review the top 100 requests quarterly. Last year, 40% of our releases addressed direct customer feedback.
+
+Interviewer: What's the biggest product challenge you're working on?
+
+Lisa Wang: Complexity management. Our customers use an average of 47 security tools. We're building deeper integrations and automations so Sophos can be the orchestration layer. The vision is a single pane of glass that doesn't just show alerts but takes intelligent action automatically.
+
+Interviewer: Great insights. Thank you, Lisa.
+
+Lisa Wang: Thank you. Excited to see where this analysis goes.

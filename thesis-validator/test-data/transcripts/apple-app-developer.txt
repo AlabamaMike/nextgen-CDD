@@ -1,0 +1,55 @@
+Expert Call Transcript: iOS App Developer and Founder
+Date: December 2024
+Duration: 35 minutes
+
+Interviewer: Thanks for speaking with us. You've been developing iOS apps for over a decade. Can you tell us about your experience?
+
+Mike Thompson (Founder, AppWorks Studio): Sure. I started developing for iOS in 2010, right after the App Store launched. My company has built over 50 apps, including three that reached the top 10 in their categories. We've generated probably $40 million in lifetime revenue through the App Store.
+
+Interviewer: That's impressive. What's your view on Apple's App Store as a business model?
+
+Mike Thompson: It's a toll booth on a highway they built. And I don't say that entirely negatively. Apple created the smartphone app economy. Before the App Store, mobile software was a nightmare. They deserve credit for that. But 30% - or even 15% for small developers - is aggressive.
+
+Interviewer: Has the small business program helped? The 15% rate for those under $1 million?
+
+Mike Thompson: It's helped smaller developers, absolutely. But here's the catch - once you cross $1 million, you jump back to 30% on every dollar, not just the dollars above $1 million. So there's actually a disincentive to grow from $900K to $1.2M. The math gets weird.
+
+Interviewer: What about the argument that Apple provides value through curation, security, and payment processing?
+
+Mike Thompson: They do provide value. The App Store review process catches malware. The payment infrastructure is seamless. Discovery through featuring can make or break an app. But is that worth 30%? Stripe charges 2.9% for payments. Google Play has the same 30% but worse curation. It's not really a free market.
+
+Interviewer: How has the EU's Digital Markets Act affected your business?
+
+Mike Thompson: It hasn't hit us yet in a major way, but it will. Apple is allowing alternative app stores in the EU, but they've added a "Core Technology Fee" that's actually more expensive for successful apps. It's like they're saying "fine, use another store, but we'll still get our cut."
+
+Interviewer: Is that sustainable long-term?
+
+Mike Thompson: I don't think so. Regulators are watching. Apple's argument is that they built the platform, but Microsoft made the same argument with Internet Explorer and lost. The question is whether app stores are more like retail stores or utility infrastructure.
+
+Interviewer: How does Apple's relationship with developers compare to Google's?
+
+Mike Thompson: Technically, Google is more open - you can sideload apps, there are alternative stores. But practically, the Play Store is dominant on Android. What I'd say is Apple is more controlling but provides a more premium user base. Our iOS users spend 3-4x what Android users spend.
+
+Interviewer: That's a significant difference. Why is that?
+
+Mike Thompson: Two reasons. First, iPhone users skew wealthier in most markets. Second, Apple Pay integration makes impulse purchases frictionless. When it's one click and Face ID, people don't think twice about $4.99. The conversion rates are just better.
+
+Interviewer: What about subscription apps? That's been a big trend.
+
+Mike Thompson: Subscriptions are everything now. Apple takes 30% the first year, then 15% for retained subscribers. That's actually pretty reasonable compared to the old model. We've moved almost entirely to subscriptions. Our revenue is more predictable, and Apple's cut decreases over time.
+
+Interviewer: Are there any existential risks to the App Store model?
+
+Mike Thompson: Yes, regulation is the big one. If Apple is forced to truly open up - allowing alternative payment systems, not just alternative stores with Apple fees - that's a massive hit. I've seen estimates that App Store revenue could drop 30-40% in that scenario.
+
+Interviewer: How would that affect developers like you?
+
+Mike Thompson: Mixed bag. We'd pay less to Apple, but we'd also lose the unified payment experience. Users are trained to trust Apple Pay. If every app had different payment systems, friction would increase and overall spending might drop. Be careful what you wish for.
+
+Interviewer: What's your view on Apple's platform longevity?
+
+Mike Thompson: iOS isn't going anywhere for at least a decade. But the next platform - AR glasses, spatial computing, whatever - is up for grabs. Apple has Vision Pro, Meta has Quest, Google is doing something. Whoever wins that might capture the next generation of app developers.
+
+Interviewer: Thank you for your candid perspective.
+
+Mike Thompson: Anytime. It's a fascinating industry to be part of.

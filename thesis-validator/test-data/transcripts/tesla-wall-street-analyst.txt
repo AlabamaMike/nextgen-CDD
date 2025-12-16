@@ -1,0 +1,47 @@
+Expert Call Transcript: Wall Street Automotive Analyst
+Interview Date: December 16, 2025 at 2:30 PM EST
+Duration: 48 minutes
+
+Interviewer: Thank you for your time. You've covered Tesla since its IPO. What's your current investment thesis?
+
+Robert Yamamoto (Managing Director, Automotive Equity Research): Thanks for having me. Tesla is the most controversial stock I cover. You have bulls seeing a $500 stock on AI and robotics, and bears seeing $100 on auto competition. The truth is probably somewhere in between, which is why I have a $220 target and Hold rating.
+
+Interviewer: Walk us through the valuation framework.
+
+Robert Yamamoto: I break Tesla into three buckets. First, the core auto business - that's worth maybe $300 billion based on 15x forward earnings, roughly in line with premium automakers. Second, energy and services - another $80 billion for the storage and Supercharger businesses. Third, optionality on FSD, robotaxi, and Optimus - that's where bulls and bears diverge wildly.
+
+Interviewer: How do you value the optionality?
+
+Robert Yamamoto: Very conservatively. I put maybe $50-100 billion on FSD/robotaxi, which assumes they eventually solve autonomy but face regulatory hurdles and competition. I put zero on Optimus currently. So my sum-of-parts gets to around $450-480 billion market cap. The stock trades at $600 billion today, so it's pricing in more optimism than I have.
+
+Interviewer: What are the key metrics you watch?
+
+Robert Yamamoto: Deliveries growth, obviously - though that's slowed to single digits. Automotive gross margins - need to stabilize above 15% for the stock to work. Energy revenue growth - should be 40%+ annually. And FSD take rate - currently around 10-15% of new vehicles, needs to grow if that optionality is ever realized.
+
+Interviewer: How do you think about China exposure?
+
+Robert Yamamoto: It's the biggest swing factor. China is 20-25% of revenue and their most profitable market because they manufacture locally. If China relations deteriorate or local competitors continue gaining share, that's a major headwind. On the flip side, if Tesla can stabilize China share and grow in India, there's upside.
+
+Interviewer: What about the regulatory environment?
+
+Robert Yamamoto: Mixed picture. The IRA tax credits help US demand. Europe has aggressive EV mandates. But NHTSA is scrutinizing Autopilot more closely after high-profile accidents. California's AV regulations create uncertainty for robotaxi timelines. It's not a major positive or negative, just noise to manage.
+
+Interviewer: How does Elon factor into your analysis?
+
+Robert Yamamoto: He's essential to the bull case - the vision, the ability to attract talent, the brand identity. But he's also a risk factor - the distractions, the controversial tweets, the unpredictability. Some institutional investors have reduced positions specifically because of key-man risk. It's impossible to ignore.
+
+Interviewer: What would change your rating to Buy?
+
+Robert Yamamoto: Two things: clear evidence the next-gen platform is on track with costs at target, and stabilization of market share in key markets. If I see those by mid-2026, I'd get more constructive. The valuation isn't demanding if the growth reaccelerates.
+
+Interviewer: And what would make you more negative?
+
+Robert Yamamoto: Continued margin compression, especially if they have to cut prices further to compete with BYD. Any safety incident that leads to major FSD restrictions. Significant China deterioration. Or Elon doing something that creates real brand damage.
+
+Interviewer: Final thoughts?
+
+Robert Yamamoto: Tesla is a great company in a difficult competitive moment. They revolutionized the auto industry and built incredible capabilities. But at current prices, you're paying for a lot of future promise. I'd rather wait for better entry points or clearer evidence on the bull case catalysts.
+
+Interviewer: Thank you for that balanced perspective.
+
+Robert Yamamoto: Anytime. Tesla always makes for interesting analysis.

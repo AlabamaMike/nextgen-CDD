@@ -1,0 +1,43 @@
+Expert Call Transcript: EV Charging Infrastructure Specialist
+Call Date: 12/16/2025
+Duration: 35 minutes
+
+Interviewer: Thanks for joining. You've been working on EV charging infrastructure for eight years. How significant is Tesla's Supercharger network?
+
+Amanda Liu (Director, Charging Strategy, Major Utility): The Supercharger network is Tesla's most underappreciated asset. They have over 55,000 Superchargers globally, with excellent reliability - over 99% uptime. For a long time, it was the main reason to buy a Tesla over competitors.
+
+Interviewer: How has the NACS standard adoption changed things?
+
+Amanda Liu: It's been transformational. When Ford, GM, and then virtually every automaker adopted Tesla's connector standard in 2023-2024, Tesla went from having a proprietary advantage to potentially becoming the charging standard for all EVs. That's a massive strategic shift.
+
+Interviewer: Does opening the network to other EVs help or hurt Tesla?
+
+Amanda Liu: Both. It creates new revenue - Tesla charges non-Tesla vehicles a premium and will receive federal subsidies. But it also reduces the competitive moat. Previously, Supercharger access was a reason to buy Tesla. Now it's available to everyone.
+
+Interviewer: How does Tesla's network compare to competitors?
+
+Amanda Liu: Electrify America has about 4,000 chargers, EVgo around 3,500. None come close to Tesla's scale or reliability. The traditional networks have had chronic uptime issues - chargers broken, payment systems failing. Tesla's integrated approach with automatic payment and real-time availability just works better.
+
+Interviewer: What about charging speed?
+
+Amanda Liu: Tesla's V4 Superchargers deliver up to 350kW, though actual speeds depend on the vehicle. They're competitive with the fastest options out there. The V4 design also supports longer vehicles like Cybertruck and Semi, which is important for fleet applications.
+
+Interviewer: How is Tesla positioned for commercial and fleet charging?
+
+Amanda Liu: That's a growth area. The Semi requires Megachargers - 1MW+ charging for heavy trucks. Tesla is building dedicated freight corridors. If they can capture a meaningful share of commercial fleet charging, that's potentially larger than consumer Supercharging long-term.
+
+Interviewer: What about home charging versus Supercharging?
+
+Amanda Liu: Most Tesla charging - probably 80-90% - happens at home. Superchargers are mainly for road trips and apartment dwellers. Tesla's wall connector is excellent, and they're pushing vehicle-to-home capability that could integrate with Powerwall. The whole home energy ecosystem is compelling.
+
+Interviewer: Any concerns about the network?
+
+Amanda Liu: Grid capacity is a looming issue. As EV adoption grows, peak charging demand could stress local grids. Tesla is better positioned than most because of their energy storage business - Megapacks can buffer grid connections. But it's something the whole industry needs to address.
+
+Interviewer: What's your outlook for Tesla's charging business?
+
+Amanda Liu: Very positive. I think charging and energy could generate $10+ billion in revenue by 2027, up from maybe $5 billion today. The NACS standard adoption was a strategic masterstroke. They're becoming essential infrastructure regardless of which EVs people buy.
+
+Interviewer: Thank you for those insights.
+
+Amanda Liu: Happy to help. Charging infrastructure is going to be a fascinating space over the next decade.

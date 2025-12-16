@@ -144,6 +144,8 @@ export {
   createAgentStatusEvent,
   createResearchProgressEvent,
   createExpertCallInsightEvent,
+  createExpertCallStartedEvent,
+  createExpertCallEndedEvent,
   matchesFilter,
   type EventType,
   type AgentStatus,

@@ -16,6 +16,7 @@ import {
   registerContradictionRoutes,
   registerMetricsRoutes,
   registerStressTestRoutes,
+  registerExpertCallRoutes,
 } from './routes/index.js';
 import {
   registerEventWebSocket,
@@ -189,6 +190,13 @@ export async function createServer(config: Partial<APIConfig> = {}): Promise<Fas
   await fastify.register(
     async (instance) => {
       await registerStressTestRoutes(instance);
+    },
+    { prefix: '/api/v1/engagements' }
+  );
+
+  await fastify.register(
+    async (instance) => {
+      await registerExpertCallRoutes(instance);
     },
     { prefix: '/api/v1/engagements' }
   );

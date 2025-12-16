@@ -378,6 +378,40 @@ export function createExpertCallInsightEvent(
 }
 
 /**
+ * Helper to create expert call started event
+ */
+export function createExpertCallStartedEvent(
+  engagementId: string,
+  callId: string
+): EngagementEvent {
+  return createEvent(
+    'expert_call.started',
+    engagementId,
+    { call_id: callId }
+  );
+}
+
+/**
+ * Helper to create expert call ended event
+ */
+export function createExpertCallEndedEvent(
+  engagementId: string,
+  callId: string,
+  status: 'completed' | 'failed',
+  error?: string
+): EngagementEvent {
+  return createEvent(
+    'expert_call.ended',
+    engagementId,
+    {
+      call_id: callId,
+      status,
+      ...(error ? { error } : {}),
+    }
+  );
+}
+
+/**
  * Event filter for subscriptions
  */
 export interface EventFilter {

@@ -1,0 +1,25 @@
+Expert Call Transcript
+Company: Sophos Group
+Interviewee: John Morrison, CEO at Sophos
+Date: December 10, 2024
+Duration: 45 minutes
+
+Interviewer: Thank you for joining us today, John. Can you give us an overview of Sophos's current market position in the enterprise security space?
+
+John Morrison: Absolutely. Sophos has carved out a strong position in the mid-market enterprise segment. We're seeing significant traction with companies between 500-5000 employees who need enterprise-grade security but don't have the IT resources of larger organizations. Our managed detection and response (MDR) offering has been a game-changer.
+
+Interviewer: How has the competitive landscape evolved with the rise of XDR solutions?
+
+John Morrison: The XDR market is crowded, but we differentiate through our adaptive cybersecurity ecosystem. Unlike point solutions, we offer synchronized security where our endpoint, firewall, and cloud workload protection share threat intelligence in real-time. This gives our customers a 40% faster mean time to detect threats compared to siloed solutions.
+
+Interviewer: What about the acquisition by Thoma Bravo? How has that impacted operations?
+
+John Morrison: Going private has actually given us more flexibility to invest in R&D without quarterly earnings pressure. We've increased our AI/ML investment by 60% since the acquisition, particularly in our threat detection capabilities. The results show - our false positive rate has dropped to under 0.1% while detection rates improved by 35%.
+
+Interviewer: What's your outlook for the next 18 months?
+
+John Morrison: We see three major growth vectors: expanding our MDR service globally, deepening our cloud security capabilities for hybrid environments, and strengthening our partner ecosystem. The cybersecurity TAM continues to grow at 12-15% annually, and we're confident we can outpace that.
+
+Interviewer: Thank you for your insights today.
+
+John Morrison: My pleasure. Happy to discuss further anytime.

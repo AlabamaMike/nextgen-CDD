@@ -64,6 +64,12 @@ docker-compose up -d
 # Initialize database
 npm run db:init
 
+# Create database schema (first install only)
+npm run db:schema
+
+# Run migrations
+npm run db:migrate
+
 # Seed skill library
 npm run seed:skills
 

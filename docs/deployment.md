@@ -389,7 +389,9 @@ curl ${SERVICE_URL}/api/v1/skills
 
 After the backend is deployed, you need to initialize the database schema and seed the skill library.
 
-### 4.1 Run Database Migration
+### 4.1 Initialize Database Schema (First Install Only)
+
+On first deployment, you must create the database schema. This only needs to be run once.
 
 You can run this locally connecting to Cloud SQL via the Cloud SQL Auth Proxy, or create a Cloud Run job:
 
@@ -400,10 +402,15 @@ You can run this locally connecting to Cloud SQL via the Cloud SQL Auth Proxy, o
 # Start proxy in background
 ./cloud-sql-proxy ${SQL_CONNECTION} &
 
-# Set environment and run migration
+# Set environment
 export DATABASE_URL="postgresql://thesis_validator:${DB_PASSWORD}@localhost:5432/thesis_validator"
 cd thesis-validator
 npm install
+
+# Create database schema (FIRST INSTALL ONLY)
+npm run db:schema
+
+# Run any pending migrations
 npm run db:migrate
 
 # Option 2: Via the API (if your app supports it)

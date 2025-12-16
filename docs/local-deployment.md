@@ -122,6 +122,7 @@ cp .env.example .env
 # 4. Install dependencies and initialize
 npm install
 npm run db:init
+npm run db:schema    # First install only - creates PostgreSQL tables
 npm run db:migrate
 npm run seed:skills
 
@@ -348,7 +349,11 @@ ENABLE_REAL_TIME_EXPERT_SUPPORT=true
 # Initialize vector database schema
 npm run db:init
 
-# Create PostgreSQL tables (engagements, hypotheses, evidence, etc.)
+# Create PostgreSQL tables (FIRST INSTALL ONLY)
+# This creates the initial database schema - only run once on fresh installs
+npm run db:schema
+
+# Run any pending migrations (run on first install and after updates)
 npm run db:migrate
 
 # Seed the skill library with default skills

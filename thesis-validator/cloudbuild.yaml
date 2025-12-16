@@ -95,13 +95,17 @@ steps:
   - id: 'build-image'
     name: 'gcr.io/cloud-builders/docker'
     dir: 'thesis-validator'
+    entrypoint: 'sh'
     args:
-      - 'build'
-      - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${_TAG}'
-      - '--cache-from'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest'
-      - '.'
+      - '-c'
+      - |
+        # Try to pull cache image (ignore failure for first build)
+        docker pull ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest || true
+        # Build with cache if available
+        docker build \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${_TAG} \
+          --cache-from ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:latest \
+          .
     waitFor: ['lint', 'typecheck', 'test']
 
   # ---------------------------------------------------------------------------

@@ -121,7 +121,7 @@ steps:
 
   # ---------------------------------------------------------------------------
   # Step 7: Deploy to Cloud Run (Production)
-  # Only runs on main branch
+  # Runs on main branch OR manual builds (when BRANCH_NAME is empty)
   # ---------------------------------------------------------------------------
   - id: 'deploy-production'
     name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -129,13 +129,14 @@ steps:
     args:
       - '-c'
       - |
-        if [ "$BRANCH_NAME" = "main" ]; then
+        if [ "$BRANCH_NAME" = "main" ] || [ -z "$BRANCH_NAME" ]; then
           gcloud run deploy ${_SERVICE_NAME} \
             --image ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${_TAG} \
             --region ${_REGION} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=${_REGION}" \
+            --vpc-connector tv-vpc-connector \
+            --set-env-vars "NODE_ENV=production,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=${_REGION},CORS_ORIGINS=*" \
             --set-secrets "JWT_SECRET=thesis-validator-jwt-secret:latest,OPENAI_API_KEY=openai-api-key:latest,TAVILY_API_KEY=tavily-api-key:latest" \
             --memory 2Gi \
             --cpu 2 \

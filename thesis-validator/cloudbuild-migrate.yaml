@@ -22,9 +22,6 @@ substitutions:
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  pool:
-    name: 'projects/${PROJECT_ID}/locations/us-central1/workerPools/private-pool'
-  # Use default pool if no private pool exists - will still work with Cloud SQL Auth Proxy
 
 steps:
   # ---------------------------------------------------------------------------

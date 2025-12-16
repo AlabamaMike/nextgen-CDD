@@ -387,19 +387,17 @@ export class SkillLibrary {
     limit?: number;
     sort_by?: 'usage_count' | 'success_rate' | 'created_at';
   } = {}): Promise<SkillDefinition[]> {
-    const results = await this.client.search(this.namespace, new Float32Array(1536), {
-      top_k: options.limit ?? 100,
-      min_score: -Infinity,
-      ...(options.category !== undefined && { filter: { category: options.category } }),
-    });
+    // Use cached skills directly for reliability (vector search with zero vectors can be unreliable)
+    let skills = Array.from(this.skillCache.values());
 
-    const skills = await Promise.all(results.map((r) => this.get(r.id)));
+    // Apply category filter
+    if (options.category !== undefined) {
+      skills = skills.filter(s => s.category === options.category);
+    }
 
     // Sort by specified field
-    const validSkills = skills.filter((s): s is SkillDefinition => s !== null);
-
     if (options.sort_by) {
-      validSkills.sort((a, b) => {
+      skills.sort((a, b) => {
         switch (options.sort_by) {
           case 'usage_count':
             return b.usage_count - a.usage_count;
@@ -413,7 +411,12 @@ export class SkillLibrary {
       });
     }
 
-    return validSkills;
+    // Apply limit
+    if (options.limit !== undefined) {
+      skills = skills.slice(0, options.limit);
+    }
+
+    return skills;
   }
 
   /**

@@ -38,8 +38,8 @@ export async function registerAuth(fastify: FastifyInstance): Promise<void> {
 
   // Add authenticate decorator
   fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Skip auth in development mode if DISABLE_AUTH is set
-    if (process.env['NODE_ENV'] !== 'production' && process.env['DISABLE_AUTH'] === 'true') {
+    // Skip auth if DISABLE_AUTH is set (useful for development and testing)
+    if (process.env['DISABLE_AUTH'] === 'true') {
       // Set a default dev user when auth is disabled
       (request as AuthenticatedRequest).user = {
         id: 'dev-user',

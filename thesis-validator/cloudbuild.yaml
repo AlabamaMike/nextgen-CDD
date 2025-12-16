@@ -29,6 +29,7 @@ substitutions:
   _REPOSITORY: thesis-validator
   _SERVICE_NAME: thesis-validator
   _NODE_VERSION: '20'
+  _PR_NUMBER: ''  # Set by GitHub trigger for PRs, empty for manual builds
 
 options:
   logging: CLOUD_LOGGING_ONLY

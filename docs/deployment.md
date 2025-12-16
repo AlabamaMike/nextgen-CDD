@@ -391,34 +391,71 @@ After the backend is deployed, you need to initialize the database schema and se
 
 ### 4.1 Run Database Migration
 
-You can run this locally connecting to Cloud SQL via the Cloud SQL Auth Proxy, or create a Cloud Run job:
+Since Cloud SQL uses private IP, you need to connect via the Cloud SQL Auth Proxy.
+
+#### Option A: From Cloud Shell (Recommended)
 
 ```bash
-# Option 1: Using Cloud SQL Auth Proxy (local)
-# Install the proxy: https://cloud.google.com/sql/docs/postgres/sql-proxy
+# 1. Download Cloud SQL Auth Proxy
+curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+chmod +x cloud-sql-proxy
 
-# Start proxy in background
-./cloud-sql-proxy ${SQL_CONNECTION} &
+# 2. Get your SQL connection name
+SQL_CONNECTION=$(gcloud sql instances describe thesis-validator-postgres --format="value(connectionName)")
+echo "SQL Connection: $SQL_CONNECTION"
 
-# Set environment and run migration
-export DATABASE_URL="postgresql://thesis_validator:${DB_PASSWORD}@localhost:5432/thesis_validator"
+# 3. Start the proxy in the background
+./cloud-sql-proxy $SQL_CONNECTION &
+
+# 4. Get your DB password from Secret Manager
+DB_PASSWORD=$(gcloud secrets versions access latest --secret=thesis-validator-db-password)
+
+# 5. Set DATABASE_URL and run migrations
 cd thesis-validator
 npm install
+export DATABASE_URL="postgresql://thesis_validator:${DB_PASSWORD}@localhost:5432/thesis_validator"
 npm run db:migrate
 
-# Option 2: Via the API (if your app supports it)
-curl -X POST ${SERVICE_URL}/api/v1/admin/migrate \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
-```
-
-### 4.2 Seed Skill Library
-
-```bash
-# Via Cloud SQL Proxy (local)
+# 6. Seed the skill library
 npm run seed:skills
 
-# Or verify skills are seeded via API
-curl ${SERVICE_URL}/api/v1/skills
+# 7. Stop the proxy when done
+pkill cloud-sql-proxy
+```
+
+#### Option B: From Local Machine
+
+```bash
+# 1. Install Cloud SQL Auth Proxy
+# See: https://cloud.google.com/sql/docs/postgres/sql-proxy
+
+# 2. Authenticate with GCP
+gcloud auth application-default login
+
+# 3. Get connection info
+SQL_CONNECTION=$(gcloud sql instances describe thesis-validator-postgres --format="value(connectionName)")
+DB_PASSWORD=$(gcloud secrets versions access latest --secret=thesis-validator-db-password)
+
+# 4. Start proxy in background
+./cloud-sql-proxy $SQL_CONNECTION &
+
+# 5. Run migrations
+cd thesis-validator
+npm install
+export DATABASE_URL="postgresql://thesis_validator:${DB_PASSWORD}@localhost:5432/thesis_validator"
+npm run db:migrate
+npm run seed:skills
+
+# 6. Stop the proxy
+pkill cloud-sql-proxy
+```
+
+### 4.2 Verify Database and Skills
+
+```bash
+# Test via the API (requires auth token)
+TOKEN=$(gcloud auth print-identity-token)
+curl -H "Authorization: Bearer $TOKEN" ${SERVICE_URL}/api/v1/skills
 ```
 
 ---

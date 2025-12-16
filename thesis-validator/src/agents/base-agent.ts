@@ -15,7 +15,7 @@ import type { DealMemory } from '../memory/deal-memory.js';
 import type { InstitutionalMemory } from '../memory/institutional-memory.js';
 import type { MarketIntelligence } from '../memory/market-intelligence.js';
 import type { AgentStatus, EngagementEvent } from '../models/events.js';
-import { createAgentStatusEvent } from '../models/events.js';
+import { createAgentStatusEvent, createEvent } from '../models/events.js';
 import { embed } from '../tools/embedding.js';
 import {
   createModel,
@@ -87,6 +87,18 @@ export interface AgentResult<T = unknown> {
 export interface AgentMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+/**
+ * Parsed LLM error with user-friendly message
+ */
+export interface LLMError {
+  code: 'MODEL_NOT_FOUND' | 'CONNECTION_ERROR' | 'AUTH_ERROR' | 'RATE_LIMIT' | 'CONTEXT_LENGTH' | 'UNKNOWN';
+  userMessage: string;
+  technicalMessage: string;
+  provider: string;
+  model?: string;
+  retryable: boolean;
 }
 
 /**
@@ -208,6 +220,134 @@ export abstract class BaseAgent {
   }
 
   /**
+   * Parse LLM error into user-friendly format
+   */
+  protected parseLLMError(error: unknown): LLMError {
+    const provider = this.getProviderType();
+    const model = this.config.model;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Model not found errors
+    if (
+      errorMessage.includes('model') &&
+      (errorMessage.includes('not found') || errorMessage.includes('does not exist') || errorMessage.includes('unknown'))
+    ) {
+      return {
+        code: 'MODEL_NOT_FOUND',
+        userMessage: `Model "${model}" is not available on ${provider}. Please check your LLM_MODEL configuration.`,
+        technicalMessage: errorMessage,
+        provider,
+        model,
+        retryable: false,
+      };
+    }
+
+    // Connection errors (Ollama not running, network issues)
+    if (
+      errorMessage.includes('ECONNREFUSED') ||
+      errorMessage.includes('ENOTFOUND') ||
+      errorMessage.includes('ETIMEDOUT') ||
+      errorMessage.includes('fetch failed') ||
+      errorMessage.includes('network')
+    ) {
+      return {
+        code: 'CONNECTION_ERROR',
+        userMessage: `Cannot connect to ${provider}. ${provider === 'ollama' ? 'Is Ollama running?' : 'Please check your network connection.'}`,
+        technicalMessage: errorMessage,
+        provider,
+        model,
+        retryable: true,
+      };
+    }
+
+    // Authentication errors
+    if (
+      errorMessage.includes('401') ||
+      errorMessage.includes('403') ||
+      errorMessage.includes('unauthorized') ||
+      errorMessage.includes('invalid api key') ||
+      errorMessage.includes('authentication')
+    ) {
+      return {
+        code: 'AUTH_ERROR',
+        userMessage: `Authentication failed for ${provider}. Please check your API key or credentials.`,
+        technicalMessage: errorMessage,
+        provider,
+        model,
+        retryable: false,
+      };
+    }
+
+    // Rate limit errors
+    if (
+      errorMessage.includes('429') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('too many requests')
+    ) {
+      return {
+        code: 'RATE_LIMIT',
+        userMessage: `Rate limit exceeded for ${provider}. Please wait a moment and try again.`,
+        technicalMessage: errorMessage,
+        provider,
+        model,
+        retryable: true,
+      };
+    }
+
+    // Context length errors
+    if (
+      errorMessage.includes('context length') ||
+      errorMessage.includes('token limit') ||
+      errorMessage.includes('maximum context') ||
+      errorMessage.includes('too long')
+    ) {
+      return {
+        code: 'CONTEXT_LENGTH',
+        userMessage: 'The input is too long for the model. Please reduce the amount of text.',
+        technicalMessage: errorMessage,
+        provider,
+        model,
+        retryable: false,
+      };
+    }
+
+    // Unknown errors
+    return {
+      code: 'UNKNOWN',
+      userMessage: `LLM error (${provider}): ${errorMessage.slice(0, 100)}${errorMessage.length > 100 ? '...' : ''}`,
+      technicalMessage: errorMessage,
+      provider,
+      model,
+      retryable: false,
+    };
+  }
+
+  /**
+   * Emit an LLM error event for UI notification
+   */
+  protected emitLLMError(llmError: LLMError): void {
+    if (this.context?.onEvent) {
+      const event = createEvent(
+        'agent.error',
+        this.context.engagementId,
+        {
+          agent_id: this.config.id,
+          agent_name: this.config.name,
+          error_code: llmError.code,
+          message: llmError.userMessage,
+          provider: llmError.provider,
+          model: llmError.model,
+          retryable: llmError.retryable,
+          technical_message: llmError.technicalMessage,
+        },
+        this.config.id
+      );
+      this.context.onEvent(event);
+    }
+  }
+
+  /**
    * Generate embedding for text
    */
   protected async embed(text: string): Promise<Float32Array> {
@@ -262,8 +402,10 @@ export abstract class BaseAgent {
         },
       };
     } catch (error) {
-      this.updateStatus('error', error instanceof Error ? error.message : 'Unknown error');
-      throw error;
+      const llmError = this.parseLLMError(error);
+      this.updateStatus('error', llmError.userMessage);
+      this.emitLLMError(llmError);
+      throw new Error(llmError.userMessage);
     }
   }
 
@@ -351,8 +493,10 @@ export abstract class BaseAgent {
         },
       };
     } catch (error) {
-      this.updateStatus('error', error instanceof Error ? error.message : 'Unknown error');
-      throw error;
+      const llmError = this.parseLLMError(error);
+      this.updateStatus('error', llmError.userMessage);
+      this.emitLLMError(llmError);
+      throw new Error(llmError.userMessage);
     }
   }
 

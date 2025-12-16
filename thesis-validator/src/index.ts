@@ -10,6 +10,7 @@ import 'dotenv/config';
 
 import { startServer, stopServer, type APIConfig } from './api/index.js';
 import { initializeMemorySystems } from './memory/index.js';
+import { runMigrations } from './db/index.js';
 
 /**
  * Application configuration
@@ -44,6 +45,16 @@ async function main(): Promise<void> {
 
   const config = loadConfig();
   console.log(`Environment: ${config.environment}`);
+
+  // Run PostgreSQL migrations
+  console.log('Running database migrations...');
+  try {
+    await runMigrations();
+    console.log('Database migrations complete');
+  } catch (error) {
+    console.warn('Database migrations failed (PostgreSQL may not be available):', error);
+    // Continue without PostgreSQL - in-memory storage will be used
+  }
 
   // Initialize memory system
   console.log('Initializing memory system...');

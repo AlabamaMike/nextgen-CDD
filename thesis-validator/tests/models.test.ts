@@ -127,10 +127,14 @@ describe('Engagement Models', () => {
       target_company: {
         name: 'TechCorp Inc',
         description: 'Enterprise software company',
-        industry: 'Technology',
-        geography: 'North America',
+        sector: 'Technology',
+        location: 'North America',
       },
-      investment_thesis: 'Strong market position with growth potential',
+      investment_thesis: {
+        summary: 'Strong market position with growth potential',
+        key_value_drivers: ['Growth'],
+        key_risks: ['Competition'],
+      },
     };
 
     const engagement = createEngagement(request, 'creator-id');
@@ -177,13 +181,13 @@ describe('Skill Models', () => {
 describe('Event Models', () => {
   it('should create a valid event', () => {
     const event = createEvent(
-      'hypothesis_updated',
+      'hypothesis.updated',
       randomUUID(),
       { hypothesis_id: randomUUID(), change: 'confidence_updated' }
     );
 
     expect(event.id).toBeDefined();
-    expect(event.type).toBe('hypothesis_updated');
+    expect(event.type).toBe('hypothesis.updated');
     expect(event.timestamp).toBeDefined();
     expect(event.data).toBeDefined();
   });

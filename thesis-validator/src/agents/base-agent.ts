@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { DealMemory } from '../memory/deal-memory.js';
 import type { InstitutionalMemory } from '../memory/institutional-memory.js';
 import type { MarketIntelligence } from '../memory/market-intelligence.js';
+import type { SkillLibrary } from '../memory/skill-library.js';
 import type { AgentStatus, EngagementEvent } from '../models/events.js';
 import { createAgentStatusEvent } from '../models/events.js';
 import { embed } from '../tools/embedding.js';
@@ -57,6 +58,7 @@ export interface AgentContext {
   dealMemory: DealMemory;
   institutionalMemory?: InstitutionalMemory;
   marketIntelligence?: MarketIntelligence;
+  skillLibrary?: SkillLibrary;
   onEvent?: (event: EngagementEvent) => void;
   abortSignal?: AbortSignal;
 }

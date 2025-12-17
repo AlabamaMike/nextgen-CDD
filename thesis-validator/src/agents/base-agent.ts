@@ -16,6 +16,7 @@ import type { MarketIntelligence } from '../memory/market-intelligence.js';
 import type { SkillLibrary } from '../memory/skill-library.js';
 import type { AgentStatus, EngagementEvent } from '../models/events.js';
 import { createAgentStatusEvent } from '../models/events.js';
+import type { SkillDefinition, SkillExecutionResult } from '../models/index.js';
 import { embed } from '../tools/embedding.js';
 import {
   LLMProvider,
@@ -245,6 +246,113 @@ export abstract class BaseAgent {
    */
   protected async embed(text: string): Promise<Float32Array> {
     return embed(text);
+  }
+
+  /**
+   * Find relevant skills for a task description
+   */
+  protected async findRelevantSkills(
+    taskDescription: string,
+    topK = 2
+  ): Promise<SkillDefinition[]> {
+    if (!this.context?.skillLibrary) {
+      return [];
+    }
+
+    const embedding = await this.embed(taskDescription);
+    const results = await this.context.skillLibrary.search(embedding, { top_k: topK });
+
+    const skills: SkillDefinition[] = [];
+    for (const result of results) {
+      const skill = await this.context.skillLibrary.get(result.id);
+      if (skill) {
+        skills.push(skill);
+      }
+    }
+
+    return skills;
+  }
+
+  /**
+   * Execute a skill with parameters
+   */
+  protected async executeSkill(
+    skillId: string,
+    parameters: Record<string, unknown>
+  ): Promise<SkillExecutionResult> {
+    if (!this.context?.skillLibrary) {
+      return {
+        skill_id: skillId,
+        success: false,
+        output: null,
+        execution_time_ms: 0,
+        error: 'Skill library not available',
+      };
+    }
+
+    return this.context.skillLibrary.execute({
+      skill_id: skillId,
+      parameters,
+      context: {
+        engagement_id: this.context.engagementId,
+      },
+    });
+  }
+
+  /**
+   * Extract parameters for a skill from agent input using LLM
+   */
+  protected async extractParametersForSkill(
+    skill: SkillDefinition,
+    agentInput: unknown
+  ): Promise<Record<string, unknown>> {
+    const parameterDescriptions = skill.parameters
+      .map((p) => `- ${p.name} (${p.type}): ${p.description}${p.required ? ' [REQUIRED]' : ' [OPTIONAL]'}`)
+      .join('\n');
+
+    const prompt = `Extract parameter values for this skill from the given context.
+
+SKILL: ${skill.name}
+DESCRIPTION: ${skill.description}
+
+PARAMETERS NEEDED:
+${parameterDescriptions}
+
+CONTEXT:
+${JSON.stringify(agentInput, null, 2)}
+
+Extract values for each parameter as JSON. Use null for missing optional parameters.
+Only include parameters that can be reasonably inferred from the context.
+
+Output as JSON object with parameter names as keys:`;
+
+    try {
+      const response = await this.callLLM(prompt, { temperature: 0, maxTokens: 1024 });
+      const params = this.parseJSON<Record<string, unknown>>(response.content);
+      return params ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Build prompt context from skill execution results
+   */
+  protected buildSkillContextPrompt(skillResults: Array<{ skill: SkillDefinition; result: SkillExecutionResult }>): string {
+    const successfulResults = skillResults.filter((r) => r.result.success);
+
+    if (successfulResults.length === 0) {
+      return '';
+    }
+
+    const sections = successfulResults.map((r) => {
+      const output = typeof r.result.output === 'string'
+        ? r.result.output
+        : JSON.stringify(r.result.output, null, 2);
+      return `### ${r.skill.name}\n${r.skill.description}\n\nAnalysis:\n${output}`;
+    });
+
+    return `## Analytical Framework Results\n\nThe following analytical frameworks were applied:\n\n${sections.join('\n\n')}`;
   }
 
   /**

@@ -45,7 +45,7 @@ steps:
     name: 'node:${_NODE_VERSION}-alpine'
     dir: 'thesis-validator'
     entrypoint: 'npm'
-    args: ['ci']
+    args: ['install']
 
   # ---------------------------------------------------------------------------
   # Step 2: Run Linting

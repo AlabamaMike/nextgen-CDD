@@ -313,7 +313,10 @@ Be thorough but efficient - quality over quantity.`,
 
       return this.buildSkillContextPrompt(skillResults);
     } catch (error) {
-      console.error('[EvidenceGatherer] Error executing skills:', error);
+      console.error(
+        '[EvidenceGatherer] Error executing skills:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       return '';
     }
   }

@@ -265,7 +265,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should create evidence for the engagement', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           content: 'Company reported 95% customer retention in their latest annual report',
@@ -318,7 +318,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       for (const evidence of evidenceItems) {
         const response = await server.inject({
           method: 'POST',
-          url: `/api/v1/${engagementId}/evidence`,
+          url: `/api/v1/engagements/${engagementId}/evidence`,
           headers: { 'Content-Type': 'application/json' },
           payload: evidence,
         });
@@ -330,7 +330,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should retrieve all evidence for engagement', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -343,7 +343,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should filter evidence by sentiment', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence?sentiment=supporting`,
+        url: `/api/v1/engagements/${engagementId}/evidence?sentiment=supporting`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -355,7 +355,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should filter evidence by source type', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence?source_type=document`,
+        url: `/api/v1/engagements/${engagementId}/evidence?source_type=document`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -366,7 +366,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should filter evidence by minimum credibility', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence?min_credibility=0.8`,
+        url: `/api/v1/engagements/${engagementId}/evidence?min_credibility=0.8`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -377,7 +377,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should get evidence statistics', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence/stats`,
+        url: `/api/v1/engagements/${engagementId}/evidence/stats`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -394,7 +394,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should update evidence sentiment and credibility', async () => {
       const response = await server.inject({
         method: 'PATCH',
-        url: `/api/v1/${engagementId}/evidence/${evidenceId}`,
+        url: `/api/v1/engagements/${engagementId}/evidence/${evidenceId}`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           sentiment: 'neutral',
@@ -411,7 +411,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should link evidence to hypothesis', async () => {
       const response = await server.inject({
         method: 'POST',
-        url: `/api/v1/${engagementId}/evidence/${evidenceId}/hypotheses`,
+        url: `/api/v1/engagements/${engagementId}/evidence/${evidenceId}/hypotheses`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           hypothesisId: subHypothesisId,
@@ -427,7 +427,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should filter evidence by hypothesis', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence?hypothesis_id=${subHypothesisId}`,
+        url: `/api/v1/engagements/${engagementId}/evidence?hypothesis_id=${subHypothesisId}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -440,7 +440,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       const fakeId = randomUUID();
       const response = await server.inject({
         method: 'PATCH',
-        url: `/api/v1/${engagementId}/evidence/${fakeId}`,
+        url: `/api/v1/engagements/${engagementId}/evidence/${fakeId}`,
         headers: { 'Content-Type': 'application/json' },
         payload: { sentiment: 'neutral' },
       });
@@ -452,7 +452,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Create evidence to delete
       const createResponse = await server.inject({
         method: 'POST',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           content: 'Evidence to be deleted',
@@ -466,7 +466,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Delete it
       const deleteResponse = await server.inject({
         method: 'DELETE',
-        url: `/api/v1/${engagementId}/evidence/${evidence.id}`,
+        url: `/api/v1/engagements/${engagementId}/evidence/${evidence.id}`,
       });
 
       expect(deleteResponse.statusCode).toBe(200);
@@ -475,7 +475,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Verify it's gone
       const getResponse = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
       });
 
       const body = JSON.parse(getResponse.payload);
@@ -491,7 +491,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
     it('should show updated hypothesis coverage in evidence stats after linking', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence/stats`,
+        url: `/api/v1/engagements/${engagementId}/evidence/stats`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -525,7 +525,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Create evidence linked to it
       const createEvResponse = await server.inject({
         method: 'POST',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           content: 'Evidence linked to test hypothesis',
@@ -539,7 +539,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Link them
       await server.inject({
         method: 'POST',
-        url: `/api/v1/${engagementId}/evidence/${newEvidence.id}/hypotheses`,
+        url: `/api/v1/engagements/${engagementId}/evidence/${newEvidence.id}/hypotheses`,
         headers: { 'Content-Type': 'application/json' },
         payload: {
           hypothesisId: hypothesis.id,
@@ -566,7 +566,7 @@ describe('Slice 1 & 2 E2E Tests', () => {
       // Evidence should still exist (orphaned, but not deleted)
       const evidenceResponse = await server.inject({
         method: 'GET',
-        url: `/api/v1/${engagementId}/evidence`,
+        url: `/api/v1/engagements/${engagementId}/evidence`,
       });
       const evidenceBody = JSON.parse(evidenceResponse.payload);
       expect(evidenceBody.evidence.find((e: any) => e.id === newEvidence.id)).toBeDefined();

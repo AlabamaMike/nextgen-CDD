@@ -103,6 +103,11 @@ export async function initializeMemorySystems(): Promise<void> {
 
   // Seed default skills if ENABLE_SKILL_LIBRARY is set
   if (process.env['ENABLE_SKILL_LIBRARY'] === 'true') {
+    // Wire the LLM executor
+    const { createLLMSkillExecutor } = await import('./skill-executor.js');
+    skillLibrary.setExecutor(createLLMSkillExecutor());
+    console.log('[Memory] Skill executor configured');
+
     try {
       const seededCount = await skillLibrary.seedDefaultSkills('system');
       if (seededCount > 0) {

@@ -7,8 +7,8 @@
 import { Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 import type { ResearchJobData } from '../services/job-queue.js';
-import type { ProgressEvent } from '../models/index.js';
-import { ConductorAgent } from '../agents/index.js';
+import type { ProgressEvent, EngagementEvent, Engagement } from '../models/index.js';
+import { executeResearchWorkflow } from '../workflows/index.js';
 import { getPool } from '../db/index.js';
 
 // Redis connection from environment
@@ -57,6 +57,63 @@ async function publishProgress(jobId: string, type: ProgressEvent['type'], data:
 }
 
 /**
+ * Fetch engagement from database
+ */
+async function fetchEngagement(engagementId: string): Promise<Engagement | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    'SELECT * FROM engagements WHERE id = $1',
+    [engagementId]
+  );
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0]!;
+
+  // Map database row to Engagement type
+  // Required fields with sensible defaults for optional DB columns
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    client_name: (row.client_name as string) ?? 'Unknown Client',
+    deal_type: (row.deal_type as Engagement['deal_type']) ?? 'buyout',
+    status: row.status as Engagement['status'],
+    target_company: row.target_company as Engagement['target_company'],
+    investment_thesis: row.investment_thesis as Engagement['investment_thesis'],
+    team: (row.team as Engagement['team']) ?? [],
+    config: (row.config as Engagement['config']) ?? {
+      enable_real_time_support: false,
+      enable_contradiction_analysis: true,
+      enable_comparables_search: true,
+      auto_refresh_market_intel: false,
+    },
+    retention_policy: (row.retention_policy as Engagement['retention_policy']) ?? {
+      delete_after_days: 365,
+      archive_after_days: 90,
+    },
+    deal_namespace: (row.deal_namespace as string) ?? `deal_${engagementId}`,
+    created_at: new Date(row.created_at as string).getTime(),
+    updated_at: new Date(row.updated_at as string).getTime(),
+    created_by: (row.created_by as string) ?? 'system',
+  };
+}
+
+/**
+ * Map workflow phase to TUI phase name
+ */
+function mapPhaseToProgress(phase: string): { phase: string; progress: number } {
+  const phaseMap: Record<string, { phase: string; progress: number }> = {
+    'initializing': { phase: 'hypothesis_generation', progress: 10 },
+    'thesis_structuring': { phase: 'hypothesis_generation', progress: 20 },
+    'comparables_search': { phase: 'hypothesis_generation', progress: 30 },
+    'evidence_gathering': { phase: 'evidence_gathering', progress: 50 },
+    'contradiction_analysis': { phase: 'contradiction_detection', progress: 70 },
+    'synthesis': { phase: 'report_generation', progress: 85 },
+  };
+  return phaseMap[phase] ?? { phase: 'status_update', progress: 50 };
+}
+
+/**
  * Process research job
  */
 async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
@@ -79,96 +136,58 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
       progress: 10,
     });
 
-    // Initialize conductor
-    const conductor = new ConductorAgent();
+    // Fetch engagement from database
+    const engagement = await fetchEngagement(engagementId);
+    if (!engagement) {
+      throw new Error(`Engagement ${engagementId} not found`);
+    }
 
-    // Phase 1: Hypothesis Generation
-    await job.updateProgress(20);
-    await publishProgress(job.id!, 'phase_start', {
-      phase: 'hypothesis_generation',
-      message: 'Building investment hypotheses',
-      progress: 20,
-    });
+    // Build thesis object
+    const investmentThesis = {
+      summary: thesis,
+      key_value_drivers: engagement.investment_thesis?.key_value_drivers ?? [],
+      key_risks: engagement.investment_thesis?.key_risks ?? [],
+    };
 
-    // Execute research workflow (runs all phases internally as a batch)
-    const results = await conductor.executeResearchWorkflow({
-      thesis,
+    // Create event handler for progress updates
+    const onEvent = (event: EngagementEvent): void => {
+      const eventData = event.data as Record<string, unknown>;
+      const phase = eventData['phase'] as string | undefined;
+
+      if (phase) {
+        const mapped = mapPhaseToProgress(phase);
+        void job.updateProgress(mapped.progress);
+        void publishProgress(job.id!, 'phase_start', {
+          phase: mapped.phase,
+          message: eventData['message'] ?? `Processing ${mapped.phase}...`,
+          progress: mapped.progress,
+        });
+      }
+    };
+
+    // Execute the proper research workflow
+    console.log(`[ResearchWorker] Starting research workflow for ${engagement.name}`);
+    const results = await executeResearchWorkflow({
+      engagement,
+      thesis: investmentThesis,
       config: {
-        maxHypotheses: config.maxHypotheses ?? 5,
-        enableDeepDive: config.enableDeepDive ?? true,
-        confidenceThreshold: config.confidenceThreshold ?? 70,
+        enableComparablesSearch: true,
+        enableContradictionAnalysis: true,
+        contradictionIntensity: config.searchDepth === 'thorough' ? 'aggressive' : 'moderate',
+        maxEvidencePerHypothesis: config.maxHypotheses ?? 20,
+        parallelAgents: true,
+        recordMetrics: true,
       },
+      onEvent,
     });
 
-    // Phase complete with hypothesis count
-    await publishProgress(job.id!, 'phase_complete', {
-      phase: 'hypothesis_generation',
-      message: `Generated ${results.hypotheses.length} hypotheses`,
-      progress: 30,
-      hypothesis_count: results.hypotheses.length,
-    });
+    console.log(`[ResearchWorker] Workflow completed for ${engagement.name}`);
 
-    // Phase 2: Evidence Gathering
-    await job.updateProgress(40);
-    await publishProgress(job.id!, 'phase_start', {
-      phase: 'evidence_gathering',
-      message: 'Gathering supporting evidence',
-      progress: 40,
-    });
-
-    await publishProgress(job.id!, 'phase_complete', {
-      phase: 'evidence_gathering',
-      message: `Collected ${results.evidence.length} evidence items`,
-      progress: 55,
-      evidence_count: results.evidence.length,
-    });
-
-    // Phase 3: Contradiction Detection
-    await job.updateProgress(60);
-    await publishProgress(job.id!, 'phase_start', {
-      phase: 'contradiction_detection',
-      message: 'Analyzing for contradictions',
-      progress: 60,
-    });
-
-    await publishProgress(job.id!, 'phase_complete', {
-      phase: 'contradiction_detection',
-      message: `Found ${results.contradictions.length} potential contradictions`,
-      progress: 70,
-      contradiction_count: results.contradictions.length,
-    });
-
-    // Phase 4: Report Generation
-    await job.updateProgress(75);
-    await publishProgress(job.id!, 'phase_start', {
-      phase: 'report_generation',
-      message: 'Generating research report',
-      progress: 75,
-    });
-
-    await job.updateProgress(80);
-    await publishProgress(job.id!, 'phase_complete', {
-      phase: 'report_generation',
-      message: `Research complete with ${results.confidence.toFixed(1)}% confidence`,
-      progress: 80,
-    });
-
-    // Store results in database
-    await publishProgress(job.id!, 'status_update', {
-      status: 'saving',
-      message: 'Storing research results',
-      progress: 85,
-    });
-
-    await storeResearchResults(pool, job.id!, engagementId, results);
-
-    await job.updateProgress(90);
-
-    // Sanitize confidence score - handle NaN, undefined, or out-of-range values
-    const rawConfidence = results.confidence;
+    // Calculate confidence score - use overallConfidence from results (0-1 scale, convert to 0-100)
+    const rawConfidence = results.overallConfidence * 100;
     const confidenceScore = (typeof rawConfidence === 'number' && !isNaN(rawConfidence))
       ? Math.max(0, Math.min(100, rawConfidence))
-      : 50; // Default to 50% if invalid
+      : 50;
 
     // Update job status to completed
     await pool.query(
@@ -178,10 +197,13 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
       ['completed', confidenceScore, JSON.stringify({
         verdict: confidenceScore > 70 ? 'proceed' : 'review',
         summary: `Research completed with ${confidenceScore.toFixed(1)}% confidence`,
-        key_findings: results.hypotheses.map(h => h.statement),
-        risks: results.contradictions,
-        opportunities: [],
-        recommendations: results.needsDeepDive ? ['Deep dive was performed'] : [],
+        hypothesisTree: results.hypothesisTree,
+        evidence: results.evidence,
+        contradictions: results.contradictions,
+        comparables: results.comparables,
+        riskAssessment: results.riskAssessment,
+        recommendations: results.recommendations,
+        executionTimeMs: results.executionTimeMs,
       }), job.id]
     );
 
@@ -193,6 +215,9 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
       data: {
         confidence: confidenceScore,
         verdict: confidenceScore > 70 ? 'proceed' : 'review',
+        hypothesisCount: results.hypothesisTree.totalHypotheses,
+        evidenceCount: results.evidence.totalCount,
+        contradictionCount: results.contradictions.totalCount,
       },
     });
 
@@ -217,39 +242,6 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
     );
 
     throw error;
-  }
-}
-
-/**
- * Store research results in database
- */
-async function storeResearchResults(
-  pool: any,
-  jobId: string,
-  engagementId: string,
-  results: {
-    hypotheses: Array<{ statement: string; priority: number }>;
-    evidence: Array<{ type: string; content: string; confidence: number }>;
-    contradictions: string[];
-    confidence: number;
-  }
-): Promise<void> {
-  // Store hypotheses
-  for (const hypothesis of results.hypotheses) {
-    await pool.query(
-      `INSERT INTO hypotheses (job_id, statement, priority, validation_status)
-       VALUES ($1, $2, $3, $4)`,
-      [jobId, hypothesis.statement, hypothesis.priority, 'pending']
-    );
-  }
-
-  // Store evidence items
-  for (const evidence of results.evidence) {
-    await pool.query(
-      `INSERT INTO evidence_items (engagement_id, job_id, type, hypothesis, content, confidence)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [engagementId, jobId, evidence.type, 'General research', evidence.content, evidence.confidence]
-    );
   }
 }
 

@@ -68,7 +68,7 @@ export function useResearchProgress(jobId: string | null): UseResearchProgressRe
   const connect = useCallback(() => {
     if (!jobId || ws) return;
 
-    const wsUrl = apiClient.getResearchProgressWsUrl(jobId);
+    const wsUrl = apiClient.getResearchProgressWsUrl(jobId, 'dev-token');
     const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
@@ -78,8 +78,32 @@ export function useResearchProgress(jobId: string | null): UseResearchProgressRe
 
     websocket.onmessage = (event) => {
       try {
-        const progressEvent = JSON.parse(event.data) as ProgressEvent;
-        setEvents((prev) => [...prev, progressEvent]);
+        const message = JSON.parse(event.data);
+
+        // Handle wrapped messages from backend
+        if (message.type === 'progress' && message.payload) {
+          setEvents((prev) => [...prev, message.payload as ProgressEvent]);
+        } else if (message.type === 'connected') {
+          // Optional: Add a system event for connection
+          /* 
+          setEvents((prev) => [...prev, {
+            type: 'status_update',
+            jobId: message.payload.jobId,
+            timestamp: message.payload.timestamp,
+            data: { status: 'connected' },
+            message: 'Connected to research stream'
+          } as ProgressEvent]);
+          */
+          console.log('Research stream connected:', message.payload);
+        } else if (message.type === 'error') {
+          console.error('Research stream error:', message.payload);
+        } else {
+          // Fallback for direct events (legacy/dev)
+          // Only add if it looks like a valid event with timestamp
+          if (message.timestamp) {
+            setEvents((prev) => [...prev, message as ProgressEvent]);
+          }
+        }
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
       }
@@ -87,7 +111,22 @@ export function useResearchProgress(jobId: string | null): UseResearchProgressRe
 
     websocket.onerror = (event) => {
       setError(new Error('WebSocket error occurred'));
-      console.error('WebSocket error:', event);
+      console.error('WebSocket connection failed:', {
+        url: wsUrl,
+        readyState: websocket.readyState,
+        event
+      });
+    };
+
+    websocket.onclose = (event) => {
+      if (event.code !== 1000) {
+        console.error('WebSocket closed abnormally:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
+      }
+      setIsConnected(false);
     };
 
     websocket.onclose = () => {

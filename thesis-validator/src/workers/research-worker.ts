@@ -8,7 +8,8 @@ import { Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 import type { ResearchJobData } from '../services/job-queue.js';
 import type { ProgressEvent } from '../models/index.js';
-import { ConductorAgent } from '../agents/index.js';
+import { ConductorAgent, createAgentSwarm } from '../agents/index.js';
+import { DealMemory } from '../memory/deal-memory.js';
 import { getPool } from '../db/index.js';
 
 // Redis connection from environment
@@ -79,8 +80,27 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
       progress: 10,
     });
 
-    // Initialize conductor
-    const conductor = new ConductorAgent();
+    // Initialize deal memory
+    const dealMemory = new DealMemory(engagementId);
+    await dealMemory.initialize();
+
+    // Initialize agent swarm with context
+    const { conductor } = createAgentSwarm();
+    conductor.setContext({
+      engagementId,
+      dealMemory,
+      onEvent: (event) => {
+        // Map engagement events to progress events
+        publishProgress(job.id!, 'status_update', {
+          status: 'working',
+          message: `[Agent] ${event.type}`,
+          details: event.data
+        });
+
+        // Log to console for debugging
+        console.log(`[ResearchWorker] Agent Event: ${event.type} - ${JSON.stringify(event.data)}`);
+      }
+    });
 
     // Phase 1: Hypothesis Generation
     await job.updateProgress(20);
@@ -164,14 +184,19 @@ async function processResearchJob(job: Job<ResearchJobData>): Promise<void> {
 
     await job.updateProgress(90);
 
+    // Sanitize confidence score
+    const finalConfidence = (typeof results.confidence === 'number' && !Number.isNaN(results.confidence))
+      ? Math.max(0, Math.min(100, results.confidence))
+      : 0;
+
     // Update job status to completed
     await pool.query(
       `UPDATE research_jobs
        SET status = $1, completed_at = NOW(), confidence_score = $2, results = $3
        WHERE id = $4`,
-      ['completed', results.confidence, JSON.stringify({
-        verdict: results.confidence > 70 ? 'proceed' : 'review',
-        summary: `Research completed with ${results.confidence.toFixed(1)}% confidence`,
+      ['completed', finalConfidence, JSON.stringify({
+        verdict: finalConfidence > 70 ? 'proceed' : 'review',
+        summary: `Research completed with ${finalConfidence.toFixed(1)}% confidence`,
         key_findings: results.hypotheses.map(h => h.statement),
         risks: results.contradictions,
         opportunities: [],

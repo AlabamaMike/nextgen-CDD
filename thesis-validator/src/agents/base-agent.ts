@@ -9,7 +9,7 @@
  * - State management
  */
 
-import { generateText, stepCountIs, type CoreMessage, type LanguageModel, type ToolSet } from 'ai';
+import { generateText, stepCountIs, tool, type CoreMessage, type LanguageModel, type ToolSet } from 'ai';
 import { z } from 'zod';
 import type { DealMemory } from '../memory/deal-memory.js';
 import type { InstitutionalMemory } from '../memory/institutional-memory.js';
@@ -450,11 +450,11 @@ export abstract class BaseAgent {
       const toolName = agentTool.name;
       const updateStatus = this.updateStatus.bind(this);
 
-      // Define tool directly with the structure generateText expects
-      (toolsConfig as Record<string, unknown>)[agentTool.name] = {
+      // Use tool() helper to ensure correct structure for AI SDK
+      (toolsConfig as Record<string, unknown>)[agentTool.name] = tool({
         description: agentTool.description,
         parameters: schema,
-        execute: async (input: Record<string, unknown>) => {
+        execute: async (input: any) => {
           updateStatus('searching');
           const output = await handler(input);
           toolResults.push({
@@ -464,15 +464,17 @@ export abstract class BaseAgent {
           });
           return output;
         },
-      };
+      });
     }
+
+    const hasTools = Object.keys(toolsConfig).length > 0;
 
     try {
       const result = await generateText({
         model: this.model,
         system: this.config.systemPrompt,
         messages,
-        tools: toolsConfig,
+        tools: hasTools ? toolsConfig : undefined,
         stopWhen: stepCountIs(options?.maxIterations ?? 10),
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,

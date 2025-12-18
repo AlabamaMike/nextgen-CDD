@@ -1,7 +1,7 @@
 /**
  * Form component for submitting investment thesis for research
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { useStartResearch } from '../../hooks/useResearch';
 
@@ -14,6 +14,13 @@ interface ThesisSubmitFormProps {
 export function ThesisSubmitForm({ engagementId, initialThesis = '', onSubmitSuccess }: ThesisSubmitFormProps) {
   const [thesis, setThesis] = useState(initialThesis);
   const { mutate: startResearch, isPending, error } = useStartResearch();
+
+  // Update local state if initialThesis changes (e.g. data loaded from backend)
+  useEffect(() => {
+    if (initialThesis && initialThesis !== thesis) {
+      setThesis(initialThesis);
+    }
+  }, [initialThesis]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

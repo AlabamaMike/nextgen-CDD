@@ -260,7 +260,7 @@ Output as JSON:
   "key_questions": ["..."]
 }`;
 
-    const response = await this.callLLMWithTools(prompt, tools);
+    const response = await this.callLLMWithTools(prompt, []);
     const decomposition = this.parseJSON<HypothesisDecomposition>(response.content);
 
     if (!decomposition) {
@@ -330,7 +330,7 @@ Output as JSON:
       // - low risk -> 0.55 (less risky, slightly more confident)
       const riskModifier = assumption.risk_level === 'high' ? -0.15
         : assumption.risk_level === 'medium' ? -0.05
-        : 0.05;
+          : 0.05;
       // Testability affects confidence: highly testable = easier to validate
       const testabilityModifier = (assumption.testability - 0.5) * 0.1;
       const initialConfidence = 0.5 + riskModifier + testabilityModifier;
@@ -504,6 +504,7 @@ Output as JSON array:
    */
   private getTools(): AgentTool[] {
     return [
+      /*
       createTool(
         'search_similar_theses',
         'Search for similar historical theses in institutional memory',
@@ -527,11 +528,17 @@ Output as JSON array:
           return { results };
         }
       ),
+      */
 
       createTool(
         'get_existing_hypotheses',
         'Get existing hypotheses for the engagement',
-        { type: 'object', properties: {} },
+        {
+          type: 'object',
+          properties: {
+            _ignore: { type: 'string', description: 'Ignore' }
+          }
+        },
         async () => {
           if (!this.context) {
             return { hypotheses: [] };
@@ -541,6 +548,7 @@ Output as JSON array:
         }
       ),
 
+      /*
       createTool(
         'check_assumption_validity',
         'Check if an assumption has been tested in past deals',
@@ -569,6 +577,7 @@ Output as JSON array:
           };
         }
       ),
+      */
     ];
   }
 

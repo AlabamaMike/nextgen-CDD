@@ -130,6 +130,57 @@ Output your plans in structured JSON format with clear step definitions.`,
    * Execute the conductor
    */
   async execute(input: ConductorInput): Promise<AgentResult<ConductorOutput>> {
+    // Mock mode support for E2E testing
+    if (process.env.MOCK_LLM === 'true') {
+      const plan: WorkflowPlan = {
+        id: 'mock-plan-id',
+        name: 'Mock Research Plan',
+        description: 'Mocked plan for testing',
+        steps: [
+          {
+            id: 'step-1',
+            name: 'Mock Analysis',
+            description: 'Mock step',
+            agentType: 'hypothesis_builder',
+            dependencies: [],
+            status: 'completed',
+            result: { success: true }
+          }
+        ],
+        createdAt: Date.now()
+      };
+
+      // Emit events to satisfy UI listeners
+      if (this.context) {
+        this.emitEvent(createEvent(
+          'workflow.started',
+          this.context.engagementId,
+          { workflow_id: plan.id, workflow_type: plan.name, steps: [] },
+          this.config.id
+        ));
+
+        this.emitEvent(createResearchProgressEvent(
+          this.context.engagementId,
+          plan.id,
+          {
+            current_step: 'Mock Step',
+            total_steps: 1,
+            completed_steps: 1,
+            progress_percentage: 100
+          }
+        ));
+      }
+
+      return this.createResult(true, {
+        plan,
+        synthesis: 'Mock synthesis result',
+        recommendations: ['Mock recommendation']
+      }, {
+        reasoning: 'Mock execution',
+        startTime: Date.now()
+      });
+    }
+
     const startTime = Date.now();
 
     if (!this.context) {
@@ -519,7 +570,7 @@ Output as JSON:
     const needsDeepDive =
       input.config.enableDeepDive !== false &&
       (phase1Result.confidence < (input.config.confidenceThreshold ?? 70) ||
-       phase1Result.contradictions.length > 3);
+        phase1Result.contradictions.length > 3);
 
     if (needsDeepDive) {
       // Phase 2: Deep dive with additional agents

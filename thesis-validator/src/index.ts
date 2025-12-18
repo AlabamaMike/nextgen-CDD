@@ -10,6 +10,7 @@ import 'dotenv/config';
 
 import { startServer, stopServer, type APIConfig } from './api/index.js';
 import { initializeMemorySystems } from './memory/index.js';
+import { ResearchWorker } from './workers/index.js';
 
 /**
  * Application configuration
@@ -53,11 +54,17 @@ async function main(): Promise<void> {
   console.log('Starting API server...');
   const server = await startServer(config.api);
 
+  // Start Research Worker
+  console.log('Starting Research Worker...');
+  const researchWorker = new ResearchWorker();
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     console.log(`\nReceived ${signal}, shutting down gracefully...`);
 
     try {
+      console.log('Stopping Research Worker...');
+      await researchWorker.close();
       await stopServer(server);
       process.exit(0);
     } catch (error) {

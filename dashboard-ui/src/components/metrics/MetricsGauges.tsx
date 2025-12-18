@@ -133,6 +133,11 @@ function CircularGauge({
   );
 }
 
+// Extended metrics type to handle backend response variations
+type ExtendedMetrics = ResearchMetrics & {
+  lastUpdated?: string; // Backend may return lastUpdated instead of calculatedAt
+};
+
 export function MetricsGauges({ metrics, onRecalculate, isRecalculating, isLoading }: MetricsGaugesProps) {
   if (isLoading) {
     return (
@@ -142,7 +147,14 @@ export function MetricsGauges({ metrics, onRecalculate, isRecalculating, isLoadi
     );
   }
 
-  if (!metrics) {
+  // Check if metrics exist and have at least one value
+  const extMetrics = metrics as ExtendedMetrics | null;
+  const hasAnyData = extMetrics && (
+    extMetrics.evidenceCredibilityAvg !== undefined ||
+    extMetrics.overallConfidence !== undefined
+  );
+
+  if (!hasAnyData) {
     return (
       <div className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-8">
         <div className="flex flex-col items-center justify-center text-surface-500 dark:text-surface-400">
@@ -177,7 +189,9 @@ export function MetricsGauges({ metrics, onRecalculate, isRecalculating, isLoadi
             Research Quality Metrics
           </h3>
           <p className="text-sm text-surface-500 dark:text-surface-400">
-            Last calculated: {new Date(metrics.calculatedAt).toLocaleString()}
+            Last calculated: {extMetrics.calculatedAt || extMetrics.lastUpdated
+              ? new Date(extMetrics.calculatedAt || extMetrics.lastUpdated!).toLocaleString()
+              : 'Never'}
           </p>
         </div>
         {onRecalculate && (
@@ -198,15 +212,20 @@ export function MetricsGauges({ metrics, onRecalculate, isRecalculating, isLoadi
 
       {/* Gauge Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        {gaugeConfigs.map((config) => (
-          <CircularGauge
-            key={config.key}
-            value={metrics[config.key]}
-            label={config.label}
-            description={config.description}
-            isVulnerability={config.key === 'stressTestVulnerability'}
-          />
-        ))}
+        {gaugeConfigs.map((config) => {
+          const value = extMetrics[config.key as keyof ExtendedMetrics];
+          // Skip gauges with no data
+          if (value === undefined || value === null) return null;
+          return (
+            <CircularGauge
+              key={config.key}
+              value={value as number}
+              label={config.label}
+              description={config.description}
+              isVulnerability={config.key === 'stressTestVulnerability'}
+            />
+          );
+        })}
       </div>
 
       {/* Overall Summary */}
@@ -214,37 +233,37 @@ export function MetricsGauges({ metrics, onRecalculate, isRecalculating, isLoadi
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-3 rounded-lg bg-surface-50 dark:bg-surface-700/50">
             <p className={`text-2xl font-bold ${
-              metrics.overallConfidence >= 0.7
+              (extMetrics.overallConfidence ?? 0) >= 0.7
                 ? 'text-green-600 dark:text-green-400'
-                : metrics.overallConfidence >= 0.4
+                : (extMetrics.overallConfidence ?? 0) >= 0.4
                 ? 'text-yellow-600 dark:text-yellow-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {Math.round(metrics.overallConfidence * 100)}%
+              {Math.round((extMetrics.overallConfidence ?? 0) * 100)}%
             </p>
             <p className="text-sm text-surface-500 dark:text-surface-400">Overall Confidence</p>
           </div>
           <div className="text-center p-3 rounded-lg bg-surface-50 dark:bg-surface-700/50">
             <p className={`text-2xl font-bold ${
-              metrics.researchCompleteness >= 0.8
+              (extMetrics.researchCompleteness ?? 0) >= 0.8
                 ? 'text-green-600 dark:text-green-400'
-                : metrics.researchCompleteness >= 0.5
+                : (extMetrics.researchCompleteness ?? 0) >= 0.5
                 ? 'text-yellow-600 dark:text-yellow-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {Math.round(metrics.researchCompleteness * 100)}%
+              {Math.round((extMetrics.researchCompleteness ?? 0) * 100)}%
             </p>
             <p className="text-sm text-surface-500 dark:text-surface-400">Research Complete</p>
           </div>
           <div className="text-center p-3 rounded-lg bg-surface-50 dark:bg-surface-700/50">
             <p className={`text-2xl font-bold ${
-              metrics.contradictionResolutionRate >= 0.8
+              (extMetrics.contradictionResolutionRate ?? 0) >= 0.8
                 ? 'text-green-600 dark:text-green-400'
-                : metrics.contradictionResolutionRate >= 0.5
+                : (extMetrics.contradictionResolutionRate ?? 0) >= 0.5
                 ? 'text-yellow-600 dark:text-yellow-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {Math.round(metrics.contradictionResolutionRate * 100)}%
+              {Math.round((extMetrics.contradictionResolutionRate ?? 0) * 100)}%
             </p>
             <p className="text-sm text-surface-500 dark:text-surface-400">Issues Resolved</p>
           </div>

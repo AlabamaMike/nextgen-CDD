@@ -21,6 +21,40 @@ import { executeStressTestWorkflow } from '../../workflows/index.js';
 const stressTestRepo = new StressTestRepository();
 
 /**
+ * Transform stress test DTO to frontend-expected format
+ */
+function mapStressTestToResponse(dto: ReturnType<typeof stressTestRepo.getById> extends Promise<infer T> ? NonNullable<T> : never) {
+  // Extract metrics from results if available
+  const results = dto.results as {
+    testedHypotheses?: number;
+    overallVulnerability?: number;
+    summary?: {
+      totalContradictions?: number;
+      highSeverityContradictions?: number;
+      passed?: number;
+      challenged?: number;
+      failed?: number;
+    };
+  } | null;
+
+  return {
+    id: dto.id,
+    engagementId: dto.engagementId,
+    intensity: dto.intensity,
+    status: dto.status,
+    scenariosRun: results?.testedHypotheses ?? 0,
+    vulnerabilitiesFound: results?.summary?.totalContradictions ?? 0,
+    overallRiskScore: results?.overallVulnerability != null
+      ? Math.round(results.overallVulnerability * 100)
+      : null,
+    results: dto.results,
+    startedAt: dto.startedAt,
+    completedAt: dto.completedAt,
+    createdAt: dto.createdAt,
+  };
+}
+
+/**
  * Register stress test routes
  */
 export async function registerStressTestRoutes(fastify: FastifyInstance): Promise<void> {
@@ -73,7 +107,7 @@ export async function registerStressTestRoutes(fastify: FastifyInstance): Promis
       });
 
       reply.send({
-        stressTests,
+        stressTests: stressTests.map(mapStressTestToResponse),
         count: stressTests.length,
       });
     }
@@ -109,7 +143,38 @@ export async function registerStressTestRoutes(fastify: FastifyInstance): Promis
         return;
       }
 
-      const stats = await stressTestRepo.getStats(engagementId);
+      const repoStats = await stressTestRepo.getStats(engagementId);
+
+      // Get recent completed stress tests to calculate average risk score
+      const recentTests = await stressTestRepo.getByEngagement(engagementId, {
+        status: 'completed',
+        limit: 20,
+      });
+
+      // Calculate average risk score from completed tests
+      let averageRiskScore = 0;
+      if (recentTests.length > 0) {
+        const riskScores = recentTests
+          .map((t) => {
+            const results = t.results as { overallVulnerability?: number } | null;
+            return results?.overallVulnerability;
+          })
+          .filter((v): v is number => v != null);
+
+        if (riskScores.length > 0) {
+          averageRiskScore = Math.round(
+            (riskScores.reduce((a, b) => a + b, 0) / riskScores.length) * 100
+          );
+        }
+      }
+
+      // Map to frontend-expected format
+      const stats = {
+        totalTests: repoStats.totalCount,
+        averageRiskScore,
+        lastTestAt: repoStats.lastRunAt?.toISOString() ?? null,
+        vulnerabilitiesByIntensity: repoStats.byIntensity,
+      };
 
       reply.send({
         engagementId,
@@ -146,7 +211,7 @@ export async function registerStressTestRoutes(fastify: FastifyInstance): Promis
       }
 
       reply.send({
-        stressTest,
+        stressTest: mapStressTestToResponse(stressTest),
       });
     }
   );
@@ -203,7 +268,7 @@ export async function registerStressTestRoutes(fastify: FastifyInstance): Promis
 
       reply.status(202).send({
         message: 'Stress test started',
-        stressTest,
+        stressTest: mapStressTestToResponse(stressTest),
         statusUrl: `/api/v1/engagements/${engagementId}/stress-tests/${stressTest.id}`,
       });
     }

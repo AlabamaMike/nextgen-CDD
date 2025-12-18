@@ -23,7 +23,10 @@ export function useEngagements(filters?: { status?: string; sector?: string }) {
 export function useEngagement(id: string | null) {
   return useQuery({
     queryKey: ['engagement', id],
-    queryFn: () => apiClient.getEngagement(id!),
+    queryFn: async () => {
+      const response = await apiClient.getEngagement(id!);
+      return response.engagement; // Unwrap the engagement from the response
+    },
     enabled: !!id, // Only fetch if ID is provided
   });
 }

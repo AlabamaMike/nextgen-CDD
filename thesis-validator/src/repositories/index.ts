@@ -41,3 +41,9 @@ export type {
   ExpertCallStatus,
   UpdateExpertCallParams,
 } from './expert-call-repository.js';
+export { ResearchJobRepository } from './research-job-repository.js';
+export type {
+  CreateResearchJobParams,
+  ResearchJobDTO,
+  ResearchJobStatus,
+} from './research-job-repository.js';

@@ -10,7 +10,8 @@ import 'dotenv/config';
 
 import { startServer, stopServer, type APIConfig } from './api/index.js';
 import { initializeMemorySystems } from './memory/index.js';
-import { ResearchWorker } from './workers/index.js';
+import { runMigrations } from './db/index.js';
+import { ResearchWorker } from './workers/research-worker.js';
 
 /**
  * Application configuration
@@ -46,6 +47,16 @@ async function main(): Promise<void> {
   const config = loadConfig();
   console.log(`Environment: ${config.environment}`);
 
+  // Run PostgreSQL migrations
+  console.log('Running database migrations...');
+  try {
+    await runMigrations();
+    console.log('Database migrations complete');
+  } catch (error) {
+    console.warn('Database migrations failed (PostgreSQL may not be available):', error);
+    // Continue without PostgreSQL - in-memory storage will be used
+  }
+
   // Initialize memory system
   console.log('Initializing memory system...');
   await initializeMemorySystems();
@@ -54,17 +65,27 @@ async function main(): Promise<void> {
   console.log('Starting API server...');
   const server = await startServer(config.api);
 
-  // Start Research Worker
-  console.log('Starting Research Worker...');
-  const researchWorker = new ResearchWorker();
+  // Start research worker (BullMQ)
+  let researchWorker: ResearchWorker | null = null;
+  const redisHost = process.env['REDIS_HOST'];
+  if (redisHost) {
+    console.log('Starting research worker...');
+    researchWorker = new ResearchWorker(2); // concurrency of 2
+    console.log('Research worker started');
+  } else {
+    console.log('Skipping research worker (REDIS_HOST not configured)');
+  }
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     console.log(`\nReceived ${signal}, shutting down gracefully...`);
 
     try {
-      console.log('Stopping Research Worker...');
-      await researchWorker.close();
+      // Stop worker first to finish in-progress jobs
+      if (researchWorker) {
+        console.log('Stopping research worker...');
+        await researchWorker.close();
+      }
       await stopServer(server);
       process.exit(0);
     } catch (error) {

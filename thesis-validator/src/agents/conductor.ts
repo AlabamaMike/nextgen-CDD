@@ -479,7 +479,7 @@ Output as JSON:
   }
 
   /**
-   * Get conductor tools
+   * Get conductor tools for workflow planning
    */
   private getTools(): AgentTool[] {
     return [

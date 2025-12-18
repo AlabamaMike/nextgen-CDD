@@ -48,13 +48,16 @@ export async function registerSkillsRoutes(fastify: FastifyInstance): Promise<vo
         Querystring: {
           category?: string;
           query?: string;
-          limit: number;
-          offset: number;
+          limit?: number;
+          offset?: number;
         };
       }>,
       reply: FastifyReply
     ) => {
-      const { category, limit, offset } = request.query;
+      // Apply defaults since Zod schema defaults aren't used (validator compiler bypassed)
+      const category = request.query.category;
+      const limit = request.query.limit ?? 20;
+      const offset = request.query.offset ?? 0;
       // Note: query parameter is accepted but not used for now (semantic search would need embeddings)
 
       const skillLibrary = getSkillLibrary();

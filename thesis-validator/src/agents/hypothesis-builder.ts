@@ -500,7 +500,7 @@ Output as JSON array:
   }
 
   /**
-   * Get builder tools
+   * Get builder tools for thesis decomposition
    */
   private getTools(): AgentTool[] {
     return [

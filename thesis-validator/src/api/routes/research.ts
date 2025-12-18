@@ -13,16 +13,21 @@ import {
   type AuthenticatedRequest,
 } from '../middleware/index.js';
 import { getEngagement, updateEngagement } from './engagements.js';
-import {
-  executeStressTestWorkflow,
-} from '../../workflows/index.js';
+import { executeStressTestWorkflow } from '../../workflows/index.js';
 import { createDealMemory } from '../../memory/index.js';
 import type { HypothesisTree, HypothesisNode } from '../../models/index.js';
-import { getPool } from '../../db/index.js';
+import { ResearchJobRepository } from '../../repositories/index.js';
+
 import { getResearchQueue } from '../../services/job-queue.js';
 
 /**
- * Research job status tracking
+ * Repository and queue instances for research job persistence
+ */
+const researchJobRepo = new ResearchJobRepository();
+
+/**
+ * Research job status tracking - kept for backward compatibility with stress test
+ * (stress tests still use in-memory tracking until migrated)
  */
 interface ResearchJob {
   id: string;
@@ -116,44 +121,51 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         void updateEngagement(engagementId, { investment_thesis: engagement.investment_thesis });
       }
 
-      // Create job
-      const jobId = crypto.randomUUID();
-      const pool = getPool();
+      // Check for existing active job (prevent duplicates)
+      const existingJob = await researchJobRepo.getActiveByEngagement(engagementId);
+      if (existingJob) {
+        reply.status(409).send({
+          error: 'Conflict',
+          message: 'A research job is already in progress for this engagement',
+          job_id: existingJob.id,
+          status: existingJob.status,
+          status_url: `/api/v1/engagements/${engagementId}/research/${existingJob.id}`,
+        });
+        return;
+      }
 
-      // insert into DB
-      await pool.query(
-        `INSERT INTO research_jobs (id, engagement_id, type, status, config, progress)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          jobId,
-          engagementId,
-          'research',
-          'queued',
-          JSON.stringify(config),
-          0
-        ]
-      );
-
-      // Add to Queue
-      const queue = getResearchQueue();
-      await queue.addJob(jobId, {
+      // Create job record in PostgreSQL
+      const jobRecord = await researchJobRepo.create({
         engagementId,
-        thesis: engagement.investment_thesis?.summary || '',
         config: {
-          maxHypotheses: config.max_sources > 20 ? 10 : 5,
+          thesis: thesisSummary,
+          depth: config.depth,
+          focus_areas: config.focus_areas,
+          include_comparables: config.include_comparables,
+          max_sources: config.max_sources,
+        },
+      });
+
+      // Enqueue job to BullMQ for worker processing
+      const queue = getResearchQueue();
+      await queue.addJob(jobRecord.id, {
+        engagementId,
+        thesis: thesisSummary,
+        config: {
+          maxHypotheses: config.max_sources,
           enableDeepDive: config.depth === 'deep',
-          searchDepth: config.depth === 'quick' ? 'quick' : config.depth === 'deep' ? 'thorough' : 'standard',
-          confidenceThreshold: 70
-        }
+          confidenceThreshold: 70,
+          searchDepth: config.depth === 'deep' ? 'thorough' : config.depth,
+        },
       });
 
       // Update engagement status (use 'active' as the closest valid status)
       void updateEngagement(engagementId, { status: 'active' });
 
       reply.status(202).send({
-        job_id: jobId,
+        job_id: jobRecord.id,
         message: 'Research workflow started',
-        status_url: `/api/v1/engagements/${engagementId}/research/${jobId}`,
+        status_url: `/api/v1/engagements/${engagementId}/research/${jobRecord.id}`,
       });
     }
   );
@@ -192,6 +204,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         engagement_id: engagementId,
         thesis: engagement.investment_thesis?.summary,
         tree,
+        tree_structure: tree,
         node_count: hypotheses.length,
       });
     }
@@ -279,9 +292,29 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
       // engagementId is available in params but currently unused as jobId is unique
       const { jobId } = request.params;
 
-      // Check in-memory store first (for stress tests / legacy)
-      const job = jobStore.get(jobId);
+      // First check PostgreSQL for research jobs
+      const dbJob = await researchJobRepo.getById(jobId);
+      if (dbJob) {
+        // Extract progress from config if available
+        const progress = (dbJob.config as { progress?: number })?.progress ??
+          (dbJob.status === 'completed' ? 100 : dbJob.status === 'running' ? 50 : 0);
 
+        reply.send({
+          job_id: dbJob.id,
+          engagement_id: dbJob.engagementId,
+          type: 'research',
+          status: dbJob.status,
+          progress,
+          started_at: dbJob.startedAt?.getTime() ?? dbJob.createdAt.getTime(),
+          completed_at: dbJob.completedAt?.getTime(),
+          error: dbJob.errorMessage,
+          result: dbJob.status === 'completed' ? dbJob.results : undefined,
+        });
+        return;
+      }
+
+      // Fallback to in-memory store for stress test jobs (backward compatibility)
+      const job = jobStore.get(jobId);
       if (job) {
         reply.send({
           job_id: job.id,
@@ -297,50 +330,9 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
-      // Check DB (for research jobs)
-      const pool = getPool();
-      const result = await pool.query(
-        'SELECT * FROM research_jobs WHERE id = $1',
-        [jobId]
-      );
-
-      if (result.rows.length === 0) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Job not found',
-        });
-        return;
-      }
-
-      const dbJob = result.rows[0];
-
-      // Try to get live progress from queue if active
-      let progress = dbJob.progress;
-      if (dbJob.status === 'queued' || dbJob.status === 'running') {
-        try {
-          const queue = getResearchQueue();
-          const queueJob = await queue.getQueue().getJob(jobId);
-          if (queueJob) {
-            const queueProgress = queueJob.progress;
-            if (typeof queueProgress === 'number') {
-              progress = queueProgress;
-            }
-          }
-        } catch (e) {
-          // Ignore queue errors
-        }
-      }
-
-      reply.send({
-        job_id: dbJob.id,
-        engagement_id: dbJob.engagement_id,
-        type: dbJob.type,
-        status: dbJob.status,
-        progress: progress,
-        started_at: dbJob.started_at,
-        completed_at: dbJob.completed_at,
-        error: dbJob.error_message,
-        result: dbJob.results,
+      reply.status(404).send({
+        error: 'Not Found',
+        message: 'Job not found',
       });
     }
   );
@@ -413,8 +405,6 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
     }
   );
 }
-
-
 
 /**
  * Execute stress test workflow asynchronously
@@ -557,6 +547,7 @@ interface ReportData {
     evidence_count: number;
     contradiction_count: number;
     overall_confidence: number;
+    generated_at?: number;
   };
   hypotheses: {
     id: string;

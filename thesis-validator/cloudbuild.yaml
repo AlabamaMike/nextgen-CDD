@@ -45,7 +45,7 @@ steps:
     name: 'node:${_NODE_VERSION}-alpine'
     dir: 'thesis-validator'
     entrypoint: 'npm'
-    args: ['ci']
+    args: ['install']
 
   # ---------------------------------------------------------------------------
   # Step 2: Run Linting
@@ -134,11 +134,11 @@ steps:
             --image ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${_TAG} \
             --region ${_REGION} \
             --platform managed \
-            --allow-unauthenticated \
             --port 3000 \
             --vpc-connector tv-vpc-connector \
-            --set-env-vars "NODE_ENV=production,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=${_REGION},CORS_ORIGINS=*" \
-            --set-secrets "JWT_SECRET=thesis-validator-jwt-secret:latest,OPENAI_API_KEY=openai-api-key:latest,TAVILY_API_KEY=tavily-api-key:latest" \
+            --add-cloudsql-instances ${PROJECT_ID}:${_REGION}:thesis-validator-postgres \
+            --set-env-vars "NODE_ENV=production,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=global,CORS_ORIGINS=*,DISABLE_AUTH=true,REDIS_HOST=10.138.233.67,REDIS_PORT=6379,ENABLE_SKILL_LIBRARY=true" \
+            --set-secrets "JWT_SECRET=thesis-validator-jwt-secret:latest,OPENAI_API_KEY=openai-api-key:latest,TAVILY_API_KEY=tavily-api-key:latest,DATABASE_URL=thesis-validator-database-url:latest" \
             --memory 2Gi \
             --cpu 2 \
             --min-instances 0 \
@@ -167,8 +167,10 @@ steps:
             --region ${_REGION} \
             --platform managed \
             --no-allow-unauthenticated \
-            --set-env-vars "NODE_ENV=staging,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=${_REGION}" \
-            --set-secrets "JWT_SECRET=thesis-validator-jwt-secret:latest,OPENAI_API_KEY=openai-api-key:latest,TAVILY_API_KEY=tavily-api-key:latest" \
+            --vpc-connector tv-vpc-connector \
+            --add-cloudsql-instances ${PROJECT_ID}:${_REGION}:thesis-validator-postgres \
+            --set-env-vars "NODE_ENV=staging,LLM_PROVIDER=vertex-ai,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_REGION=global,DISABLE_AUTH=true,REDIS_HOST=10.138.233.67,REDIS_PORT=6379,ENABLE_SKILL_LIBRARY=true" \
+            --set-secrets "JWT_SECRET=thesis-validator-jwt-secret:latest,OPENAI_API_KEY=openai-api-key:latest,TAVILY_API_KEY=tavily-api-key:latest,DATABASE_URL=thesis-validator-database-url:latest" \
             --memory 1Gi \
             --cpu 1 \
             --min-instances 0 \

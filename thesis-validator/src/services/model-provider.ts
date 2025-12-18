@@ -8,7 +8,7 @@
  */
 
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createVertex } from '@ai-sdk/google-vertex';
+import { createVertexAnthropic } from '@ai-sdk/google-vertex/anthropic';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 
@@ -36,8 +36,8 @@ export interface ModelProviderConfig {
  * Default models for each provider
  */
 const DEFAULT_MODELS: Record<ModelProviderType, string> = {
-  anthropic: 'claude-sonnet-4-20250514',
-  'vertex-ai': 'claude-sonnet-4-20250514',
+  anthropic: 'claude-opus-4-5@20251101',
+  'vertex-ai': 'claude-opus-4-5@20251101',
   ollama: 'llama3.2',
 };
 
@@ -115,10 +115,10 @@ export function createModel(config?: Partial<ModelProviderConfig>): LanguageMode
       if (fullConfig.region) {
         vertexConfig.location = fullConfig.region;
       } else {
-        vertexConfig.location = 'us-central1';
+        vertexConfig.location = 'global';
       }
-      const vertex = createVertex(vertexConfig);
-      return vertex(modelId);
+      const vertexAnthropic = createVertexAnthropic(vertexConfig);
+      return vertexAnthropic(modelId);
     }
 
     case 'ollama': {
@@ -151,9 +151,9 @@ export function createVertexModel(
   if (options?.projectId) {
     vertexConfig.project = options.projectId;
   }
-  vertexConfig.location = options?.region ?? 'us-central1';
-  const vertex = createVertex(vertexConfig);
-  return vertex(modelId ?? DEFAULT_MODELS['vertex-ai']);
+  vertexConfig.location = options?.region ?? 'global';
+  const vertexAnthropic = createVertexAnthropic(vertexConfig);
+  return vertexAnthropic(modelId ?? DEFAULT_MODELS['vertex-ai']);
 }
 
 export function createOllamaModel(modelId?: string, baseUrl?: string): LanguageModel {

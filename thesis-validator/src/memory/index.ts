@@ -80,6 +80,7 @@ export {
   type SkillExecutionContext,
   type SkillExecutor,
 } from './skill-library.js';
+export { createLLMSkillExecutor } from './skill-executor.js';
 
 /**
  * Initialize all memory systems
@@ -99,6 +100,23 @@ export async function initializeMemorySystems(): Promise<void> {
 
   const skillLibrary = getSkillLibrary();
   await skillLibrary.initialize();
+
+  // Seed default skills if ENABLE_SKILL_LIBRARY is set
+  if (process.env['ENABLE_SKILL_LIBRARY'] === 'true') {
+    // Wire the LLM executor
+    const { createLLMSkillExecutor } = await import('./skill-executor.js');
+    skillLibrary.setExecutor(createLLMSkillExecutor());
+    console.log('[Memory] Skill executor configured');
+
+    try {
+      const seededCount = await skillLibrary.seedDefaultSkills('system');
+      if (seededCount > 0) {
+        console.log(`[Memory] Seeded ${seededCount} default skills`);
+      }
+    } catch (error) {
+      console.warn('[Memory] Failed to seed default skills:', error);
+    }
+  }
 
   console.log('[Memory] All memory systems initialized');
 }

@@ -72,26 +72,59 @@ async function fetchEngagement(engagementId: string): Promise<Engagement | null>
 
   // Map database row to Engagement type
   // Required fields with sensible defaults for optional DB columns
+  // Note: DB uses 'target_company' as the main name field, not 'name'
+  const targetCompanyName = row.target_company as string;
+  const target = typeof row.target === 'string'
+    ? JSON.parse(row.target as string)
+    : (row.target as Record<string, unknown> ?? {});
+  const thesis = typeof row.thesis === 'string'
+    ? JSON.parse(row.thesis as string)
+    : row.thesis;
+  const config = typeof row.config === 'string'
+    ? JSON.parse(row.config as string)
+    : (row.config as Record<string, unknown> ?? {});
+
+  // Normalize sector to valid enum value
+  const rawSector = (target.sector as string) ?? (row.sector as string) ?? 'technology';
+  const validSectors = [
+    'technology', 'healthcare', 'industrials', 'consumer', 'financial_services',
+    'energy', 'real_estate', 'media', 'telecommunications', 'materials', 'utilities', 'other'
+  ] as const;
+  type Sector = typeof validSectors[number];
+  const sector: Sector = validSectors.includes(rawSector.toLowerCase() as Sector)
+    ? (rawSector.toLowerCase() as Sector)
+    : 'other';
+
   return {
     id: row.id as string,
-    name: row.name as string,
-    client_name: (row.client_name as string) ?? 'Unknown Client',
+    name: targetCompanyName, // DB stores this as target_company
+    client_name: (row.lead_partner as string) ?? 'Unknown Client',
     deal_type: (row.deal_type as Engagement['deal_type']) ?? 'buyout',
     status: row.status as Engagement['status'],
-    target_company: row.target_company as Engagement['target_company'],
-    investment_thesis: row.investment_thesis as Engagement['investment_thesis'],
-    team: (row.team as Engagement['team']) ?? [],
-    config: (row.config as Engagement['config']) ?? {
-      enable_real_time_support: false,
-      enable_contradiction_analysis: true,
-      enable_comparables_search: true,
-      auto_refresh_market_intel: false,
+    target_company: {
+      name: (target.name as string) ?? targetCompanyName,
+      sector,
+      description: (target.description as string) ?? (row.description as string),
     },
-    retention_policy: (row.retention_policy as Engagement['retention_policy']) ?? {
-      delete_after_days: 365,
-      archive_after_days: 90,
+    investment_thesis: thesis ? {
+      summary: thesis.statement ?? thesis.summary ?? '',
+      key_value_drivers: thesis.key_value_drivers ?? [],
+      key_risks: thesis.key_risks ?? [],
+    } : undefined,
+    team: [],
+    config: {
+      enable_real_time_support: config.enable_real_time_support ?? false,
+      enable_contradiction_analysis: config.enable_contradiction_analysis ?? true,
+      enable_comparables_search: config.enable_comparables_search ?? true,
+      auto_refresh_market_intel: config.auto_refresh_market_intel ?? false,
     },
-    deal_namespace: (row.deal_namespace as string) ?? `deal_${engagementId}`,
+    retention_policy: {
+      deal_memory_days: 365,
+      allow_institutional_learning: true,
+      anonymization_required: true,
+      auto_archive: true,
+    },
+    deal_namespace: `deal_${engagementId}`,
     created_at: new Date(row.created_at as string).getTime(),
     updated_at: new Date(row.updated_at as string).getTime(),
     created_by: (row.created_by as string) ?? 'system',
@@ -260,6 +293,9 @@ export class ResearchWorker {
       {
         connection,
         concurrency,
+        // Research workflows can take several minutes - extend lock to 10 minutes
+        lockDuration: 600000, // 10 minutes
+        lockRenewTime: 300000, // Renew lock every 5 minutes
         limiter: {
           max: 10, // Max 10 jobs per window
           duration: 60000, // Per minute

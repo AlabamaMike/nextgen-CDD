@@ -229,9 +229,17 @@ Output structured JSON with clear hierarchy and relationships.`,
   private async decomposeThesis(input: HypothesisBuilderInput): Promise<HypothesisDecomposition> {
     const tools = this.getTools();
 
+    // Truncate very long theses to avoid LLM context issues
+    const maxThesisLength = 4000;
+    let thesisText = input.thesis;
+    if (thesisText.length > maxThesisLength) {
+      console.log(`[HypothesisBuilder] Truncating thesis from ${thesisText.length} to ${maxThesisLength} chars`);
+      thesisText = thesisText.substring(0, maxThesisLength) + '\n\n[... thesis truncated for processing ...]';
+    }
+
     const prompt = `Decompose the following investment thesis into testable hypotheses:
 
-THESIS: ${input.thesis}
+THESIS: ${thesisText}
 
 ${input.context?.sector ? `Sector: ${input.context.sector}` : ''}
 ${input.context?.dealType ? `Deal Type: ${input.context.dealType}` : ''}
@@ -264,7 +272,21 @@ Output as JSON:
     const decomposition = this.parseJSON<HypothesisDecomposition>(response.content);
 
     if (!decomposition) {
-      throw new Error('Failed to parse thesis decomposition');
+      // Log the response content for debugging
+      console.error('[HypothesisBuilder] Failed to parse thesis decomposition. LLM response:',
+        response.content?.substring(0, 500) ?? 'EMPTY');
+
+      // Try to create a minimal decomposition from the response
+      // This allows the workflow to continue even if JSON parsing fails
+      const fallbackDecomposition: HypothesisDecomposition = {
+        original_thesis: input.thesis,
+        sub_theses: [{ content: input.thesis, importance: 0.8 }],
+        assumptions: [],
+        key_questions: ['What evidence supports or contradicts this thesis?'],
+      };
+
+      console.log('[HypothesisBuilder] Using fallback decomposition');
+      return fallbackDecomposition;
     }
 
     return decomposition;

@@ -162,6 +162,62 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
   );
 
   /**
+   * Get research job status by engagement
+   * GET /engagements/:engagementId/research/:jobId
+   */
+  fastify.get(
+    '/:engagementId/research/:jobId',
+    {
+      preHandler: requireEngagementAccess('viewer'),
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { engagementId: string; jobId: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { engagementId, jobId } = request.params;
+
+      // Get job from PostgreSQL
+      const dbJob = await researchJobRepo.getById(jobId);
+
+      if (!dbJob) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Research job not found',
+        });
+        return;
+      }
+
+      // Verify job belongs to this engagement
+      if (dbJob.engagementId !== engagementId) {
+        reply.status(404).send({
+          error: 'Not Found',
+          message: 'Research job not found for this engagement',
+        });
+        return;
+      }
+
+      // Extract progress from config if available
+      const progress = (dbJob.config as { progress?: number })?.progress ??
+        (dbJob.status === 'completed' ? 100 : dbJob.status === 'running' ? 50 : 0);
+
+      reply.send({
+        job_id: dbJob.id,
+        engagement_id: dbJob.engagementId,
+        status: dbJob.status,
+        progress,
+        started_at: dbJob.startedAt?.toISOString() ?? null,
+        completed_at: dbJob.completedAt?.toISOString() ?? null,
+        error: dbJob.errorMessage,
+        results: dbJob.status === 'completed' ? dbJob.results : null,
+        confidence_score: dbJob.confidenceScore,
+        created_at: dbJob.createdAt.toISOString(),
+      });
+    }
+  );
+
+  /**
    * Get hypothesis tree
    * GET /engagements/:engagementId/hypothesis-tree
    */

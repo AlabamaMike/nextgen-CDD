@@ -75,19 +75,19 @@ export function StressTestHistory({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-4">
             <p className="text-2xl font-bold text-surface-900 dark:text-white">
-              {stats.totalTests}
+              {stats.totalTests ?? 0}
             </p>
             <p className="text-xs text-surface-500 dark:text-surface-400">Total Tests</p>
           </div>
           <div className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-4">
             <p className="text-2xl font-bold text-surface-900 dark:text-white">
-              {stats.averageRiskScore.toFixed(1)}
+              {stats.averageRiskScore?.toFixed(1) ?? 'N/A'}
             </p>
             <p className="text-xs text-surface-500 dark:text-surface-400">Avg Risk Score</p>
           </div>
           <div className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-4">
             <p className="text-2xl font-bold text-surface-900 dark:text-white">
-              {stats.vulnerabilitiesByIntensity.aggressive}
+              {stats.vulnerabilitiesByIntensity?.aggressive ?? 0}
             </p>
             <p className="text-xs text-surface-500 dark:text-surface-400">Aggressive Vulns</p>
           </div>

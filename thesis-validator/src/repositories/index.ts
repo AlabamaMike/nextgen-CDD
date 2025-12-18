@@ -34,3 +34,9 @@ export type {
   EngagementDTO,
   EngagementRow,
 } from './engagement-repository.js';
+export { ResearchJobRepository } from './research-job-repository.js';
+export type {
+  CreateResearchJobParams,
+  ResearchJobDTO,
+  ResearchJobStatus,
+} from './research-job-repository.js';

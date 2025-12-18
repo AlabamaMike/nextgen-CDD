@@ -11,6 +11,7 @@ import 'dotenv/config';
 import { startServer, stopServer, type APIConfig } from './api/index.js';
 import { initializeMemorySystems } from './memory/index.js';
 import { runMigrations } from './db/index.js';
+import { ResearchWorker } from './workers/research-worker.js';
 
 /**
  * Application configuration
@@ -64,11 +65,27 @@ async function main(): Promise<void> {
   console.log('Starting API server...');
   const server = await startServer(config.api);
 
+  // Start research worker (BullMQ)
+  let researchWorker: ResearchWorker | null = null;
+  const redisHost = process.env['REDIS_HOST'];
+  if (redisHost) {
+    console.log('Starting research worker...');
+    researchWorker = new ResearchWorker(2); // concurrency of 2
+    console.log('Research worker started');
+  } else {
+    console.log('Skipping research worker (REDIS_HOST not configured)');
+  }
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     console.log(`\nReceived ${signal}, shutting down gracefully...`);
 
     try {
+      // Stop worker first to finish in-progress jobs
+      if (researchWorker) {
+        console.log('Stopping research worker...');
+        await researchWorker.close();
+      }
       await stopServer(server);
       process.exit(0);
     } catch (error) {

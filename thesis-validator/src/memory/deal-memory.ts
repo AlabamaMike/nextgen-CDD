@@ -100,6 +100,7 @@ export class DealMemory {
    * Initialize deal memory namespaces
    */
   async initialize(): Promise<void> {
+    await this.client.initialize();
     for (const ns of Object.values(this.namespaces)) {
       await this.client.createNamespace(ns);
     }

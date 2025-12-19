@@ -131,7 +131,6 @@ describe('Engagement Models', () => {
         sector: 'technology',
         geography: 'North America',
       },
-      investment_thesis: 'Strong market position with growth potential',
     };
 
     const engagement = createEngagement(request, 'creator-id');
@@ -178,13 +177,13 @@ describe('Skill Models', () => {
 describe('Event Models', () => {
   it('should create a valid event', () => {
     const event = createEvent(
-      'hypothesis_updated',
+      'hypothesis.updated',
       randomUUID(),
       { hypothesis_id: randomUUID(), change: 'confidence_updated' }
     );
 
     expect(event.id).toBeDefined();
-    expect(event.type).toBe('hypothesis_updated');
+    expect(event.type).toBe('hypothesis.updated');
     expect(event.timestamp).toBeDefined();
     expect(event.data).toBeDefined();
   });

@@ -17,6 +17,7 @@ import { executeStressTestWorkflow } from '../../workflows/index.js';
 import { createDealMemory } from '../../memory/index.js';
 import type { HypothesisTree, HypothesisNode } from '../../models/index.js';
 import { ResearchJobRepository } from '../../repositories/index.js';
+
 import { getResearchQueue } from '../../services/job-queue.js';
 
 /**
@@ -59,7 +60,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
       preHandler: requireEngagementAccess('editor'),
       schema: {
         body: z.object({
-          thesis: z.string().optional(),
+          thesis: z.string().min(10, 'Thesis must be at least 10 characters').optional(),
           depth: z.enum(['quick', 'standard', 'deep']).default('standard'),
           focus_areas: z.array(z.string()).optional(),
           include_comparables: z.boolean().default(true),
@@ -102,8 +103,16 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         return;
       }
 
+      if (thesisSummary.length < 10) {
+        reply.status(400).send({
+          error: 'Bad Request',
+          message: 'Thesis must be at least 10 characters',
+        });
+        return;
+      }
+
       // Update engagement with thesis if provided in request
-      if (requestThesis?.trim() && !engagement.investment_thesis?.summary) {
+      if (requestThesis?.trim()) {
         engagement.investment_thesis = {
           summary: requestThesis.trim(),
           key_value_drivers: [],
@@ -120,7 +129,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
           message: 'A research job is already in progress for this engagement',
           job_id: existingJob.id,
           status: existingJob.status,
-          status_url: `/research/jobs/${existingJob.id}`,
+          status_url: `/api/v1/engagements/${engagementId}/research/${existingJob.id}`,
         });
         return;
       }
@@ -156,7 +165,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
       reply.status(202).send({
         job_id: jobRecord.id,
         message: 'Research workflow started',
-        status_url: `/research/jobs/${jobRecord.id}`,
+        status_url: `/api/v1/engagements/${engagementId}/research/${jobRecord.id}`,
       });
     }
   );
@@ -251,6 +260,7 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
         engagement_id: engagementId,
         thesis: engagement.investment_thesis?.summary,
         tree,
+        tree_structure: tree,
         node_count: hypotheses.length,
       });
     }
@@ -327,14 +337,15 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
 
   /**
    * Get research job status
-   * GET /research/jobs/:jobId
+   * GET /engagements/:engagementId/research/:jobId
    */
   fastify.get(
-    '/jobs/:jobId',
+    '/:engagementId/research/:jobId',
     async (
-      request: FastifyRequest<{ Params: { jobId: string } }>,
+      request: FastifyRequest<{ Params: { engagementId: string; jobId: string } }>,
       reply: FastifyReply
     ) => {
+      // engagementId is available in params but currently unused as jobId is unique
       const { jobId } = request.params;
 
       // First check PostgreSQL for research jobs
@@ -360,24 +371,24 @@ export async function registerResearchRoutes(fastify: FastifyInstance): Promise<
 
       // Fallback to in-memory store for stress test jobs (backward compatibility)
       const job = jobStore.get(jobId);
-      if (!job) {
-        reply.status(404).send({
-          error: 'Not Found',
-          message: 'Job not found',
+      if (job) {
+        reply.send({
+          job_id: job.id,
+          engagement_id: job.engagementId,
+          type: job.type,
+          status: job.status,
+          progress: job.progress,
+          started_at: job.startedAt,
+          completed_at: job.completedAt,
+          error: job.error,
+          result: job.status === 'completed' ? job.result : undefined,
         });
         return;
       }
 
-      reply.send({
-        job_id: job.id,
-        engagement_id: job.engagementId,
-        type: job.type,
-        status: job.status,
-        progress: job.progress,
-        started_at: job.startedAt,
-        completed_at: job.completedAt,
-        error: job.error,
-        result: job.status === 'completed' ? job.result : undefined,
+      reply.status(404).send({
+        error: 'Not Found',
+        message: 'Job not found',
       });
     }
   );
@@ -592,6 +603,7 @@ interface ReportData {
     evidence_count: number;
     contradiction_count: number;
     overall_confidence: number;
+    generated_at?: number;
   };
   hypotheses: {
     id: string;

@@ -1,0 +1,67 @@
+Expert Call Transcript: Wall Street Technology Analyst
+Date: December 2024
+Duration: 50 minutes
+
+Interviewer: Thank you for joining us. You've covered Apple for fifteen years. What's your current investment thesis?
+
+David Park (Managing Director, Tech Equity Research): Thanks for having me. Look, Apple is the most debated stock in tech. My view is it's a quality compounder, not a growth stock. You're buying a 28-30x earnings company that can grow earnings 8-10% annually through a combination of modest revenue growth, margin expansion, and aggressive buybacks.
+
+Interviewer: Walk us through the revenue breakdown and growth drivers.
+
+David Park: Sure. iPhone is still 52% of revenue at about $200 billion. Services is 22% at roughly $85 billion and growing 15% annually. Wearables and accessories are 10%, Mac is 8%, iPad is 7%. The story is iPhone stability plus Services growth.
+
+Interviewer: Is iPhone really stable? We've seen some concerning data points.
+
+David Park: Unit volumes are roughly flat, but ASP keeps rising. The Pro models now represent about 35% of units versus 25% five years ago. So revenue grows even without unit growth. The question is how long that mix shift can continue.
+
+Interviewer: What's your view on China? That's been a recent concern.
+
+David Park: China is definitely the wild card. It's about 20% of revenue, and we've seen share losses to Huawei since their Mate 60 launched. My estimate is Apple lost 3-4 points of share in China over the past year. That's concerning because China was a growth driver.
+
+Interviewer: How does that affect your model?
+
+David Park: I've reduced my China growth assumptions from +5% to -5% annually for the next two years. The nationalism factor is real. Government employees and SOE workers are being discouraged from using iPhones. That's a headwind that's hard to model.
+
+Interviewer: Let's talk about Services margins. How sustainable is 70%+ gross margin?
+
+David Park: It's the highest margin segment by far. App Store is almost pure profit margin - 90%+. Apple Music and iCloud have real costs but still 50-60% margins. The mix shift toward Services is the key to total company margin expansion. I model 45% company gross margins by 2027, up from 43% today.
+
+Interviewer: What about the capital return story?
+
+David Park: This is underappreciated. Apple has returned $600 billion to shareholders in the last decade through buybacks and dividends. They're reducing share count by 3-4% annually. Even if revenues are flat, EPS grows mid-single digits just from buybacks.
+
+Interviewer: Is the balance sheet still a source of funds?
+
+David Park: Less so going forward. Net cash has come down from $160 billion to about $50 billion. They've said they want to reach cash neutral eventually. So buyback capacity is more dependent on free cash flow now, which is about $100 billion annually.
+
+Interviewer: How do you think about valuation?
+
+David Park: Apple trades at 28x forward earnings versus the S&P at 22x. The premium is justified by quality - consistent execution, pristine balance sheet, shareholder returns. But there's not much multiple expansion left. Returns will come from earnings growth, not re-rating.
+
+Interviewer: What would change your view?
+
+David Park: On the upside, if Apple Intelligence drives a meaningful upgrade cycle, that could add 10-15% to iPhone revenue. On the downside, if Services regulation materially impacts App Store economics, I'd have to cut estimates 15-20%.
+
+Interviewer: How do you compare Apple to other mega-cap tech?
+
+David Park: Apple is the safest but lowest growth. Microsoft has the AI tailwind through Azure and Copilot. Google has search dominance plus YouTube. Amazon has AWS and advertising. Meta has the best AI engagement story. Apple is the one mega-cap without an obvious AI catalyst.
+
+Interviewer: That's interesting. So why own Apple over those alternatives?
+
+David Park: Stability and capital returns. If you're a pension fund or endowment that needs reliable returns with low volatility, Apple is ideal. If you're trying to maximize absolute returns and can tolerate volatility, the other mega-caps might be better.
+
+Interviewer: What's the bear case you worry about most?
+
+David Park: A combination of China deterioration and Services regulation hitting simultaneously. If China iPhone revenue drops 30% and App Store commissions are cut globally, you're looking at a 20%+ earnings hit. The stock would trade down to 20x in that scenario.
+
+Interviewer: And the bull case?
+
+David Park: iPhone supercycle from AI features, Vision Pro becoming mainstream faster than expected, and Apple Intelligence creating an "Apple moat" in personal AI assistants. In that scenario, you could see 15% earnings growth and 30x+ multiples.
+
+Interviewer: Where does your target price come out?
+
+David Park: I have a $240 price target, which implies about 10% upside. Buy rating, but it's a modest conviction call. Apple is more of a sleep-at-night stock than a high-conviction alpha generator.
+
+Interviewer: Thank you for the comprehensive overview.
+
+David Park: My pleasure. Happy to dig deeper on any segment.

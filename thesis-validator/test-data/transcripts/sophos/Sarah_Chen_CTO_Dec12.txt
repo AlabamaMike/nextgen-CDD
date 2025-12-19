@@ -1,0 +1,27 @@
+Interview with Sarah Chen
+Title: Chief Technology Officer, Sophos
+Recorded: December 12, 2024
+
+Interviewer: Sarah, can you walk us through the technical architecture of Sophos Central?
+
+Sarah Chen: Sure. Sophos Central is our unified cloud management platform. It's built on a microservices architecture running on AWS, with regional data centers for compliance. What makes it unique is the real-time correlation engine - we process over 500 million events daily and can correlate threats across all our product lines within milliseconds.
+
+Interviewer: How does the AI-powered threat detection work?
+
+Sarah Chen: We use a multi-model approach. Deep learning neural networks handle malware classification with over 99.7% accuracy. For behavioral detection, we employ transformer models that analyze process execution patterns. The secret sauce is our feedback loop - every threat our MDR team investigates feeds back into model training within 24 hours.
+
+Interviewer: What about false positives? That's a common complaint in the industry.
+
+Sarah Chen: We've tackled this aggressively. Our precision has improved to 99.9% - meaning only 1 in 1000 alerts is a false positive. We achieve this through ensemble methods and confidence scoring. If a threat doesn't meet our confidence threshold, it goes to our SophosLabs team for analysis before alerting customers.
+
+Interviewer: How do you see the threat landscape evolving?
+
+Sarah Chen: Ransomware remains the top concern, but we're seeing more sophisticated living-off-the-land attacks. Nation-state actors are increasingly targeting supply chains. Our response is zero-trust architecture and continuous authentication. We're also investing heavily in post-quantum cryptography - those threats are 5-10 years out but we need to be ready.
+
+Interviewer: What's on the product roadmap?
+
+Sarah Chen: We're launching enhanced cloud workload protection for containers and Kubernetes. Also expanding our SOAR capabilities with automated playbooks. The goal is to reduce analyst workload by 70% through intelligent automation.
+
+Interviewer: Thank you, Sarah. This was very informative.
+
+Sarah Chen: Thank you for having me.

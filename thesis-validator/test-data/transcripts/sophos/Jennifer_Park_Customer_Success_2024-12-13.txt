@@ -1,0 +1,32 @@
+Customer Success Deep Dive
+Expert: Jennifer Park, VP of Customer Success
+Organization: Sophos Group
+Interview Date: December 13, 2024
+
+Interviewer: Jennifer, how does Sophos approach customer success?
+
+Jennifer Park: We've built customer success from the ground up over the past three years. Previously, we relied on partners for post-sale engagement. Now we have a dedicated CS organization that works alongside partners to ensure customers get maximum value. It's collaborative, not competitive with our channel.
+
+Interviewer: What metrics define success?
+
+Jennifer Park: Our north star is product adoption - are customers using the full capabilities they've purchased? We track feature activation rates, time-to-value, and expansion indicators. Of course, NRR is the ultimate measure, and our focus on adoption has driven it above 110%.
+
+Interviewer: How do you structure the team?
+
+Jennifer Park: We have three tiers. Technical account managers for enterprise customers provide white-glove service and quarterly reviews. Digital customer success uses automated campaigns and in-product guidance for mid-market. And we've built a community platform where customers help each other - over 50,000 active members.
+
+Interviewer: What's the customer sentiment data showing?
+
+Jennifer Park: Our NPS improved from 32 to 48 over two years. Customer satisfaction surveys show 89% satisfied or very satisfied. The biggest improvement area was onboarding - we reduced time-to-protection from 5 days to under 4 hours through better tooling and guided setup.
+
+Interviewer: What are the main reasons customers leave?
+
+Jennifer Park: Honestly, it's rarely product issues. The top reasons are company-wide vendor consolidation, budget cuts, or acquisition by a company using different security tools. When we lose a customer, we conduct exit interviews. Only 15% cite a competitive product as the reason.
+
+Interviewer: How does customer success interact with product?
+
+Jennifer Park: Very closely. We have a direct feedback loop where CS insights inform the product roadmap. Our "voice of customer" program synthesizes feedback into actionable themes. Last year, this drove three major feature releases including simplified policy management that customers asked for.
+
+Interviewer: Thank you, Jennifer. Very thorough overview.
+
+Jennifer Park: Thank you. Customer success is a journey, and we're committed to continuous improvement.

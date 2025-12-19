@@ -1,0 +1,34 @@
+Channel Partner Interview
+Date: December 16, 2024
+
+Expert: David Chen
+Title: Senior Channel Manager
+Company: Sophos
+
+Interviewer: David, how would you describe Sophos's partner ecosystem?
+
+David Chen: We have the most partner-centric model in the industry. Over 53,000 partners globally, ranging from one-person MSPs to global system integrators. What makes it work is our commitment - we've never competed with our partners on deals. That trust has been built over decades.
+
+Interviewer: What partner programs drive success?
+
+David Chen: Our MSP Connect program is our fastest-growing initiative. It lets MSPs bundle Sophos products into their managed services with flexible monthly billing. Partners keep more margin and can build recurring revenue. We also have Sophos University for training and certification - over 100,000 certifications issued.
+
+Interviewer: How do partners view Sophos versus competitors?
+
+David Chen: The feedback is consistently positive on three fronts. First, margin protection - we enforce minimum margins and punish channel conflict. Second, technical support - our partner hotline has under 60-second average wait time. Third, deal registration that actually works - 90%+ win rate on registered deals.
+
+Interviewer: What challenges do partners face?
+
+David Chen: The biggest challenge is the complexity of modern security. Our partners need to be experts in endpoints, network, cloud, and compliance. We're investing heavily in making it easier - simplified packaging, better documentation, and AI-powered sales tools. We want partners to spend time with customers, not wrestling with our products.
+
+Interviewer: How is the partner landscape evolving?
+
+David Chen: Two big trends. First, consolidation - larger MSPs are acquiring smaller ones, creating fewer but bigger partners. Second, specialization - partners focusing on specific verticals like healthcare or finance where security requirements are complex. We're adapting our program to support both models.
+
+Interviewer: What's your partner satisfaction data show?
+
+David Chen: Our annual partner survey shows 87% satisfaction, which is best-in-class for enterprise security. Net promoter score is 52. Partners cite profitability, technical support, and product quality as top reasons for loyalty. Our partner churn is under 3% annually.
+
+Interviewer: Great insights on the channel. Thank you, David.
+
+David Chen: Happy to share. Partners are the backbone of our business.

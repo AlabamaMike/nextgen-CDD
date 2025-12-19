@@ -1,0 +1,43 @@
+Expert Call Transcript: Electric Vehicle Industry Analyst
+Date: December 14, 2025
+Duration: 42 minutes
+
+Interviewer: Thank you for joining us today. You've been covering the EV industry for over a decade. What's your current view on Tesla's competitive position?
+
+Rachel Chen (Senior Analyst, EV Research Group): Thanks for having me. Tesla is at an inflection point. They dominated the EV market for years, but 2025 has been challenging. Their global market share has dropped from 23% to about 17% as legacy automakers and Chinese competitors have scaled up.
+
+Interviewer: What's driving that share loss?
+
+Rachel Chen: Multiple factors. First, the Model 3 and Model Y are aging - they're essentially the same platforms from 2017 and 2020. The refresh cycles have been minor. Meanwhile, competitors have launched compelling alternatives. The Hyundai Ioniq 6, BMW i4, and especially BYD's Seal are taking share.
+
+Interviewer: How significant is the China threat?
+
+Rachel Chen: It's the biggest strategic challenge Tesla faces. BYD passed Tesla in total EV sales last year. In China specifically, Tesla has about 8% market share versus BYD's 35%. And now BYD is aggressively expanding into Europe and Southeast Asia with vehicles priced 20-30% below Tesla.
+
+Interviewer: Can Tesla compete on price?
+
+Rachel Chen: They've been trying. The price cuts in 2023 and 2024 hurt margins significantly - automotive gross margins dropped from 25% to around 16%. The Cybertruck hasn't helped margins either given its production complexity. Tesla needs the next-generation platform to get costs down.
+
+Interviewer: Tell us about that next-gen platform.
+
+Rachel Chen: This is critical. Tesla has talked about a $25,000 vehicle for years. The new platform should reduce manufacturing costs by 50% through innovations like unboxed assembly and smaller battery packs. But it's been delayed multiple times. Current estimates suggest late 2026 for production.
+
+Interviewer: What about Tesla's energy business?
+
+Rachel Chen: That's actually a bright spot. Energy storage deployments grew 75% year-over-year. The Megapack business is genuinely differentiated - they have the best integrated solution for grid-scale storage. If they can scale Megafactory production, energy could be 20% of revenue by 2027.
+
+Interviewer: How do you view the robotaxi opportunity?
+
+Rachel Chen: I'm skeptical of the timeline. Tesla has been promising full self-driving "next year" for a decade. The dedicated robotaxi vehicle unveiled last year is interesting, but Waymo already has a working service in multiple cities. Tesla is playing catch-up on the regulatory and operational side.
+
+Interviewer: What about Optimus, the humanoid robot?
+
+Rachel Chen: It's fascinating technology but not investable yet. The manufacturing challenges for humanoid robots at scale are immense. I wouldn't put any value on Optimus in my models for at least 5 years. It's optionality, not a near-term driver.
+
+Interviewer: What's your investment rating?
+
+Rachel Chen: I have a Hold rating with a $180 price target. The stock is pricing in a lot of future optionality - AI, robotaxis, robots - that may or may not materialize. The core auto business faces real headwinds. I'd want to see the next-gen vehicle launch successfully before getting more constructive.
+
+Interviewer: Thank you for your insights.
+
+Rachel Chen: My pleasure. Happy to follow up on any specific areas.

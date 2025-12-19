@@ -146,6 +146,57 @@ export class ResearchJobQueue {
   }
 
   /**
+   * Get queue counts
+   */
+  async getQueueCounts(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+    paused: number;
+  }> {
+    const counts = await this.queue.getJobCounts(
+      'waiting',
+      'active',
+      'completed',
+      'failed',
+      'delayed',
+      'paused'
+    );
+    return {
+      waiting: counts.waiting || 0,
+      active: counts.active || 0,
+      completed: counts.completed || 0,
+      failed: counts.failed || 0,
+      delayed: counts.delayed || 0,
+      paused: counts.paused || 0
+    };
+  }
+
+  /**
+   * Get jobs by status
+   */
+  async getJobs(status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed' | 'paused'): Promise<any[]> {
+    const jobs = await this.queue.getJobs([status]);
+    return jobs.map(job => ({
+      id: job.id,
+      name: job.name,
+      data: job.data,
+      opts: job.opts,
+      progress: job.progress,
+      delay: job.delay,
+      timestamp: job.timestamp,
+      attemptsMade: job.attemptsMade,
+      failedReason: job.failedReason,
+      stacktrace: job.stacktrace,
+      returnvalue: job.returnvalue,
+      finishedOn: job.finishedOn,
+      processedOn: job.processedOn,
+    }));
+  }
+
+  /**
    * Get queue instance for worker
    */
   getQueue(): Queue<ResearchJobData> {

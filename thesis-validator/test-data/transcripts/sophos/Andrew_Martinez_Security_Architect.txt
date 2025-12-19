@@ -1,0 +1,32 @@
+Technical Deep Dive
+Interviewee: Andrew Martinez
+Role: Enterprise Security Architect (Independent Consultant)
+Date: December 16, 2024
+
+Interviewer: Andrew, you've deployed multiple security platforms. How does Sophos compare architecturally?
+
+Andrew Martinez: Sophos has an underrated architecture. Their agent is lightweight - around 40MB memory footprint - while still running multiple protection engines. The cloud-native management plane scales well. What impresses me is their API-first approach; everything in Central can be automated.
+
+Interviewer: How does detection quality compare?
+
+Andrew Martinez: I've done side-by-side testing. Sophos catches more fileless attacks than most competitors thanks to their behavioral analysis. Their exploit prevention is comprehensive - covers most common CVEs out of the box. The deep learning model handles polymorphic malware better than signature-based approaches.
+
+Interviewer: What about performance impact?
+
+Andrew Martinez: Minimal. On typical workstations, I see 2-4% CPU overhead during normal operation. Scan performance depends on configuration, but scheduled scans can run without users noticing. It's better than most competitors - some enterprise agents consume 5-10% CPU constantly.
+
+Interviewer: How does the firewall integrate?
+
+Andrew Martinez: The XG/XGS firewall series is solid mid-range hardware. What's unique is Security Heartbeat - endpoints tell the firewall their health status. If an endpoint gets compromised, the firewall automatically isolates it at the network level. I've seen this stop lateral movement in real attacks.
+
+Interviewer: Any technical concerns?
+
+Andrew Martinez: Their cloud workload protection is newer and less mature than their endpoint. Container security is basic compared to specialists like Sysdig. Also, their SIEM integration requires some custom work for complex environments. These are addressable gaps, not fundamental issues.
+
+Interviewer: How would you rate their technical support?
+
+Andrew Martinez: Above average. Their partner technical support line is responsive. They have a strong community forum where engineers actively participate. For complex issues, they escalate to SophosLabs which has genuine research depth. Response times are typically same-day for severity 1 issues.
+
+Interviewer: Valuable technical perspective. Thank you, Andrew.
+
+Andrew Martinez: Happy to provide an unbiased technical view. Architecture matters in security.

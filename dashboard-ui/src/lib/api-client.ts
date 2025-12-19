@@ -15,7 +15,7 @@ declare global {
 // Priority: runtime config > env var > relative URLs (nginx proxy) > localhost dev
 function getApiBaseUrl(): string {
   // Runtime config (set at container startup, allows override without rebuild)
-  if (typeof window !== 'undefined' && window.__CONFIG__?.API_URL) {
+  if (typeof window !== 'undefined' && window.__CONFIG__?.API_URL && !window.__CONFIG__.API_URL.includes('PLACEHOLDER')) {
     return window.__CONFIG__.API_URL;
   }
   // Build-time env var
@@ -473,6 +473,106 @@ export class ThesisValidatorClient {
   ): Promise<void> {
     await this.client.delete(
       `/api/v1/engagements/${engagementId}/stress-tests/${stressTestId}`
+    );
+  }
+
+  // ==========================================================================
+  // Expert Calls
+  // ==========================================================================
+
+  async getExpertCalls(
+    engagementId: string,
+    filters?: { status?: 'pending' | 'processing' | 'completed' | 'failed'; limit?: number }
+  ): Promise<{ expertCalls: any[]; count: number }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/expert-calls`,
+      { params: filters }
+    );
+    return response.data;
+  }
+
+  async getExpertCall(
+    engagementId: string,
+    callId: string
+  ): Promise<{ expertCall: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/expert-calls/${callId}`
+    );
+    return response.data;
+  }
+
+  async getExpertCallStats(
+    engagementId: string
+  ): Promise<{ stats: any }> {
+    const response = await this.client.get(
+      `/api/v1/engagements/${engagementId}/expert-calls/stats`
+    );
+    return response.data;
+  }
+
+  async processTranscript(
+    engagementId: string,
+    data: {
+      transcript: string;
+      filename?: string;
+      callDate?: string;
+      intervieweeName?: string;
+      intervieweeTitle?: string;
+      speakerLabels?: Record<string, string>;
+      focusAreas?: string[];
+    }
+  ): Promise<{ expertCall: any; message: string; statusUrl: string; duplicate?: boolean }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/expert-calls`,
+      data
+    );
+    return response.data;
+  }
+
+  async processTranscriptBatch(
+    engagementId: string,
+    data: {
+      transcripts: Array<{
+        transcript: string;
+        filename?: string;
+        callDate?: string;
+        intervieweeName?: string;
+        intervieweeTitle?: string;
+      }>;
+      focusAreas?: string[];
+    }
+  ): Promise<{
+    message: string;
+    summary: {
+      total: number;
+      created: number;
+      duplicatesInBatch: number;
+      duplicatesExisting: number;
+    };
+    created: Array<{
+      id: string;
+      filename?: string;
+      intervieweeName?: string;
+      status: string;
+    }>;
+    duplicates: {
+      withinBatch: Array<{ filename?: string; reason: string }>;
+      existing: Array<{ filename?: string; existingCallId: string }>;
+    };
+  }> {
+    const response = await this.client.post(
+      `/api/v1/engagements/${engagementId}/expert-calls/batch`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteExpertCall(
+    engagementId: string,
+    callId: string
+  ): Promise<void> {
+    await this.client.delete(
+      `/api/v1/engagements/${engagementId}/expert-calls/${callId}`
     );
   }
 

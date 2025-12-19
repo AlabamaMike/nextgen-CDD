@@ -16,6 +16,8 @@ import {
   registerContradictionRoutes,
   registerMetricsRoutes,
   registerStressTestRoutes,
+  registerExpertCallRoutes,
+  registerAdminRoutes,
 } from './routes/index.js';
 import {
   registerEventWebSocket,
@@ -67,6 +69,20 @@ export async function createServer(config: Partial<APIConfig> = {}): Promise<Fas
     },
   });
 
+  // Global request logging
+  fastify.addHook('onRequest', async (request) => {
+    fastify.log.info({
+      msg: 'Incoming request',
+      method: request.method,
+      url: request.url,
+      headers: {
+        upgrade: request.headers.upgrade,
+        connection: request.headers.connection,
+        origin: request.headers.origin
+      }
+    });
+  });
+
   // Disable schema validation temporarily to get server running
   // TODO: Implement proper Zod-to-JSON-Schema conversion
   fastify.setValidatorCompiler(() => {
@@ -84,7 +100,7 @@ export async function createServer(config: Partial<APIConfig> = {}): Promise<Fas
   // });
 
   await fastify.register(cors, {
-    origin: finalConfig.corsOrigins,
+    origin: true, // Allow all origins (reflection) for development
     credentials: true,
   });
 
@@ -197,6 +213,18 @@ export async function createServer(config: Partial<APIConfig> = {}): Promise<Fas
     },
     { prefix: '/api/v1/engagements' }
   );
+
+  await fastify.register(
+    async (instance) => {
+      await registerExpertCallRoutes(instance);
+    },
+    { prefix: '/api/v1/engagements' }
+  );
+
+  // Register Admin Routes
+  await fastify.register(async (instance) => {
+    await registerAdminRoutes(instance);
+  }, { prefix: '/api/v1/admin' });
 
   // Register WebSocket plugin (once for all WebSocket handlers)
   await fastify.register(import('@fastify/websocket'));

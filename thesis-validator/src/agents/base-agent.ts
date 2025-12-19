@@ -9,7 +9,7 @@
  * - State management
  */
 
-import { generateText, stepCountIs, type CoreMessage, type LanguageModel, type ToolSet } from 'ai';
+import { generateText, tool, type CoreMessage, type LanguageModel, type ToolSet } from 'ai';
 import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import { z } from 'zod';
 import type { DealMemory } from '../memory/deal-memory.js';
@@ -595,11 +595,11 @@ Output as JSON object with parameter names as keys:`;
       const toolName = agentTool.name;
       const updateStatus = this.updateStatus.bind(this);
 
-      // Define tool directly with the structure generateText expects
-      (toolsConfig as Record<string, unknown>)[agentTool.name] = {
+      // Use tool() helper to ensure correct structure for AI SDK
+      (toolsConfig as Record<string, unknown>)[agentTool.name] = tool({
         description: agentTool.description,
-        parameters: schema,
-        execute: async (input: Record<string, unknown>) => {
+        parameters: schema as z.ZodType<any>,
+        execute: async (input: any) => {
           updateStatus('searching');
           const output = await handler(input);
           toolResults.push({
@@ -609,17 +609,17 @@ Output as JSON object with parameter names as keys:`;
           });
           return output;
         },
-      };
+      } as any);
     }
+
+    const hasTools = Object.keys(toolsConfig).length > 0;
 
     try {
       const result = await generateText({
         model: this.model,
         system: this.config.systemPrompt,
         messages,
-        tools: toolsConfig,
-        stopWhen: stepCountIs(options?.maxIterations ?? 10),
-        maxOutputTokens: this.config.maxTokens,
+        ...(hasTools ? { tools: toolsConfig } : {}),
         temperature: this.config.temperature,
       });
 

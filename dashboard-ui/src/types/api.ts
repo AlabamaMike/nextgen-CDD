@@ -25,6 +25,14 @@ export interface Engagement {
   description?: string;
   deal_size?: number;
   lead_partner?: string;
+  investment_thesis?: {
+    summary: string;
+    key_value_drivers: string[];
+    key_risks: string[];
+    target_irr?: number;
+    hold_period_years?: number;
+    value_creation_levers?: string[];
+  };
 }
 
 export interface EngagementFilters {
@@ -134,8 +142,8 @@ export interface EvidenceItem {
 
 export interface ProgressEvent {
   type: 'status_update' | 'phase_start' | 'phase_complete' | 'hypothesis_generated' |
-        'evidence_found' | 'contradiction_detected' | 'round_complete' | 'job_complete' |
-        'completed' | 'error';
+  'evidence_found' | 'contradiction_detected' | 'round_complete' | 'job_complete' |
+  'completed' | 'error';
   jobId: string;
   timestamp: number | string;
   data: Record<string, unknown>;
@@ -414,6 +422,136 @@ export interface StressTestStats {
 
 export interface RunStressTestRequest {
   intensity: StressTestIntensity;
+}
+
+// =============================================================================
+// Expert Call Types
+// =============================================================================
+
+export type ExpertCallStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface ExpertCallInsight {
+  type: 'key_point' | 'contradiction' | 'data_point' | 'follow_up';
+  content: string;
+  confidence: number;
+  speaker?: string;
+  relatedHypothesisId?: string;
+}
+
+export interface ExpertCall {
+  id: string;
+  engagementId: string;
+  status: ExpertCallStatus;
+  transcript: string | null;
+  speakerLabels: Record<string, string>;
+  focusAreas: string[];
+  callDate: string | null;
+  results: ExpertCallResults | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpertProfile {
+  name: string;
+  role?: string;
+  organization?: string;
+  expertise: string[];
+  perspectiveSummary?: string;
+  credibilityIndicators: string[];
+  speakingTime: number;
+  segmentCount: number;
+}
+
+export interface TranscriptInsight {
+  id: string;
+  type: 'key_point' | 'data_point' | 'market_insight' | 'competitive_intel' | 'risk_factor' | 'opportunity' | 'contradiction' | 'validation' | 'caveat' | 'recommendation';
+  content: string;
+  quote?: string;
+  speaker: string;
+  timestamp: number;
+  confidence: number;
+  relatedHypothesisIds?: string[];
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  importance: 'high' | 'medium' | 'low';
+}
+
+export interface EnhancedInsight {
+  insight: TranscriptInsight;
+  relatedHypotheses: string[];
+  actionItems: string[];
+}
+
+/**
+ * Thesis alignment assessment for an expert call
+ * Matches evidence sentiment classification pattern
+ */
+export interface ThesisAlignment {
+  /** Overall sentiment: does this call support or contradict the investment thesis? */
+  sentiment: 'supporting' | 'neutral' | 'contradicting';
+  /** Confidence in the sentiment classification (0-1) */
+  confidence: number;
+  /** Brief explanation of the assessment */
+  reasoning: string;
+  /** Key points from this call that support the investment thesis */
+  supportingPoints: string[];
+  /** Key points from this call that challenge or contradict the thesis */
+  contradictingPoints: string[];
+}
+
+export interface ExpertCallResults {
+  analysis: {
+    id: string;
+    callId: string;
+    duration: number;
+    speakers: ExpertProfile[];
+    insights: TranscriptInsight[];
+    keyQuotes: Array<{
+      id: string;
+      text: string;
+      speaker: string;
+      timestamp: number;
+      context: string;
+      significance: string;
+    }>;
+    topics: Array<{
+      name: string;
+      timeSpent: number;
+      sentiment: 'positive' | 'negative' | 'mixed' | 'neutral';
+      keyPoints: string[];
+    }>;
+    summary: string;
+    contradictions?: Array<{
+      statement1: string;
+      statement2: string;
+      speaker1: string;
+      speaker2: string;
+      severity: number;
+    }>;
+  };
+  expertProfiles: ExpertProfile[];
+  keyInsights: EnhancedInsight[];
+  consensusPoints: string[];
+  divergencePoints: string[];
+  followUpQuestions: string[];
+  synthesizedSummary: string;
+  thesisAlignment?: ThesisAlignment;
+}
+
+export interface ExpertCallStats {
+  totalCount: number;
+  byStatus: Record<ExpertCallStatus, number>;
+  avgDurationMs: number | null;
+  lastCallAt: string | null;
+}
+
+export interface ProcessTranscriptRequest {
+  transcript: string;
+  callDate?: string;
+  speakerLabels?: Record<string, string>;
+  focusAreas?: string[];
 }
 
 // =============================================================================

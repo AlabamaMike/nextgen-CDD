@@ -28,9 +28,26 @@ export interface AuthenticatedRequest extends FastifyRequest {
  * Register authentication plugin
  */
 export async function registerAuth(fastify: FastifyInstance): Promise<void> {
+  // Validate JWT_SECRET is set in production
+  const jwtSecret = process.env['JWT_SECRET'];
+  const isProduction = process.env['NODE_ENV'] === 'production';
+
+  if (isProduction && !jwtSecret) {
+    throw new Error(
+      'JWT_SECRET environment variable must be set in production. ' +
+      'Generate one with: openssl rand -base64 32'
+    );
+  }
+
+  if (isProduction && jwtSecret && jwtSecret.length < 32) {
+    throw new Error(
+      'JWT_SECRET must be at least 32 characters in production for security.'
+    );
+  }
+
   // Register JWT plugin
   await fastify.register(import('@fastify/jwt'), {
-    secret: process.env['JWT_SECRET'] ?? 'development-secret-change-in-production',
+    secret: jwtSecret ?? 'development-secret-change-in-production',
     sign: {
       expiresIn: '24h',
     },

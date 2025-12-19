@@ -37,3 +37,13 @@ export {
 export {
   registerStressTestRoutes,
 } from './stress-tests.js';
+
+export {
+  registerExpertCallRoutes,
+} from './expert-calls.js';
+
+export {
+  registerAdminRoutes,
+} from './admin.js';
+
+

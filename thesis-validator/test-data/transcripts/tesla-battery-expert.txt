@@ -1,0 +1,39 @@
+Expert Call Transcript: Battery Technology Researcher
+Date: Dec 15, 2025
+Duration: 38 minutes
+
+Interviewer: Thanks for speaking with us. You've spent 15 years in battery R&D. Can you assess Tesla's battery technology position?
+
+Dr. James Morrison (Former Battery Engineer, Tesla/Panasonic JV): Happy to help. Tesla's battery strategy has evolved significantly. They started fully dependent on Panasonic, then added LG and CATL as suppliers, and now they're trying to bring significant production in-house with 4680 cells.
+
+Interviewer: How is the 4680 program going?
+
+Dr. James Morrison: It's been slower than expected. The 4680 format offers theoretical advantages - higher energy density, better thermal management, lower cost per kWh. But Tesla has struggled with yield rates. Last I heard, they're around 70% yield versus 95%+ for mature cell lines. That's a significant cost disadvantage.
+
+Interviewer: What's causing the yield issues?
+
+Dr. James Morrison: The dry electrode coating process is genuinely difficult to scale. It works great in the lab but manufacturing consistency at gigawatt scale is another matter. Tesla acquired Maxwell Technologies for this technology in 2019, and six years later they're still working out the kinks.
+
+Interviewer: How does Tesla compare to competitors on battery tech?
+
+Dr. James Morrison: CATL and BYD are ahead on cost. CATL's cell-to-pack technology is elegant and they're at massive scale - over 300 GWh annually. BYD's Blade Battery has excellent safety characteristics. On the high end, companies like QuantumScape are pushing solid-state technology that could leapfrog everyone.
+
+Interviewer: What about Tesla's energy density?
+
+Dr. James Morrison: They're competitive but not leading. The 4680 cells in the Cybertruck achieve about 272 Wh/kg at the cell level. CATL's Qilin battery is at 255 Wh/kg but with better pack integration. The real breakthrough would be solid-state at 400+ Wh/kg, but that's still 3-5 years away for anyone.
+
+Interviewer: Talk about the cost trajectory.
+
+Dr. James Morrison: Battery costs have fallen dramatically - from $1,100/kWh in 2010 to about $120/kWh today at the pack level. Tesla's target is sub-$80/kWh, which would enable a truly affordable EV. But reaching that requires both the 4680 cells working and raw material costs cooperating. Lithium and nickel prices remain volatile.
+
+Interviewer: How important is vertical integration for Tesla?
+
+Dr. James Morrison: It's a double-edged sword. Owning cell production gives you control and potentially lower costs. But it also means massive capex and technology risk. Tesla has spent billions on cell production and they're still buying most cells from suppliers. The pragmatic hybrid approach makes sense.
+
+Interviewer: What's your outlook on Tesla's battery position in 3-5 years?
+
+Dr. James Morrison: They'll likely be a strong second tier - behind CATL on cost, potentially behind solid-state pioneers on technology. The 4680 program will eventually work, but it won't be the game-changer they originally hoped. The real question is whether batteries become commoditized, in which case Tesla's brand and software become more important.
+
+Interviewer: Thank you for that technical perspective.
+
+Dr. James Morrison: Anytime. Battery technology is endlessly fascinating.

@@ -39,12 +39,12 @@ export const defaultConfig = {
 
   // Embedding Configuration
   embedding: {
-    provider: (process.env['EMBEDDING_PROVIDER'] ?? 'vertex-ai') as 'openai' | 'vertex-ai',
+    provider: (process.env['EMBEDDING_PROVIDER'] ?? 'openai') as 'openai' | 'vertex-ai',
     // Vertex AI: text-embedding-005, text-multilingual-embedding-002, gemini-embedding-001
     // OpenAI: text-embedding-3-small, text-embedding-3-large
-    model: process.env['EMBEDDING_MODEL'] ?? 'text-embedding-005',
-    // Vertex AI default: 768, OpenAI text-embedding-3-large: 3072
-    dimensions: parseInt(process.env['EMBEDDING_DIMENSIONS'] ?? '768', 10),
+    model: process.env['EMBEDDING_MODEL'] ?? 'text-embedding-3-small',
+    // Vertex AI default: 768, OpenAI text-embedding-3-large: 3072, small: 1536
+    dimensions: parseInt(process.env['EMBEDDING_DIMENSIONS'] ?? '1536', 10),
     batchSize: 5, // Vertex AI limit is 5 texts per request
     cacheEnabled: true,
     // Vertex AI specific

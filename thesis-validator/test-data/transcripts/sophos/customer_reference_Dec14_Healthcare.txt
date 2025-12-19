@@ -1,0 +1,35 @@
+Customer Reference Call
+Industry: Healthcare
+Interview Date: December 14, 2024
+
+Expert: James Rodriguez
+Position: CISO at Regional Medical Center (10,000+ employees)
+Topic: Sophos deployment and experience
+
+Interviewer: James, can you tell us about your security environment before Sophos?
+
+James Rodriguez: We had a patchwork of security tools - separate endpoint, firewall, and email security vendors. It was a management nightmare. We had three full-time staff just keeping everything updated. When we had an incident, correlating data across systems took hours.
+
+Interviewer: What drove the decision to switch to Sophos?
+
+James Rodriguez: Healthcare is heavily regulated, and we needed a vendor who understood HIPAA compliance. Sophos's unified approach meant one console, one vendor, one throat to choke. Their partner, a healthcare-focused MSP, had done similar deployments and understood our environment. That expertise was crucial.
+
+Interviewer: How was the implementation?
+
+James Rodriguez: Surprisingly smooth. We deployed in phases - endpoint first, then network, then cloud workloads. The Sophos Central console made policy management straightforward. Total deployment was six weeks, including training. Our staff could manage the system after two days of training.
+
+Interviewer: What results have you seen?
+
+James Rodriguez: Night and day difference. Mean time to detect dropped from 4 days to 6 hours. False positives decreased 80% so our analysts aren't chasing phantoms. We've blocked three ransomware attempts that our old solution would have missed. And we consolidated from six security vendors to two.
+
+Interviewer: Any challenges?
+
+James Rodriguez: Initial configuration required some tuning for healthcare-specific applications - medical devices have unusual network patterns. Sophos support was responsive and helped optimize settings. Also, some legacy medical devices needed exceptions because they run outdated OS versions.
+
+Interviewer: Would you recommend Sophos?
+
+James Rodriguez: Absolutely, particularly for healthcare. The HIPAA compliance features, synchronized security, and partner ecosystem make it well-suited for our industry. The MDR service gives me peace of mind - I know experts are watching even when my team isn't.
+
+Interviewer: Thank you for sharing your experience, James.
+
+James Rodriguez: Happy to help. Security is a team sport and sharing knowledge helps everyone.

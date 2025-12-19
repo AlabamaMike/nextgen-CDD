@@ -1,0 +1,26 @@
+Call Date: December 11, 2024
+Expert: Michael Peters (VP of Global Sales, Sophos)
+
+Interviewer: Michael, how would you describe Sophos's go-to-market strategy?
+
+Michael Peters: We have a 100% channel model - we don't sell direct. This might seem counterintuitive, but it's core to our DNA. Our 53,000+ partners worldwide provide local expertise and support that we couldn't replicate. Our partner margins are industry-leading at 20-35% depending on tier.
+
+Interviewer: How do you compete against vendors with direct sales forces?
+
+Michael Peters: Our partners are more trusted advisors than salespeople. A CrowdStrike rep visits quarterly; our partners are there weekly supporting other infrastructure. When security concerns arise, we're top of mind. Our partner-sourced deals have a 45% higher win rate than competitive situations.
+
+Interviewer: What's driving customer adoption?
+
+Michael Peters: Three things. First, total cost of ownership - we're 30-40% lower than competitors when you factor in management overhead. Second, the synchronized security story resonates - customers are tired of managing 15 different security vendors. Third, our MDR service is sticky - once customers experience 24/7 expert monitoring, they rarely leave.
+
+Interviewer: What about enterprise accounts?
+
+Michael Peters: That's a growth area. We've traditionally been strong in mid-market, but our enterprise pipeline has grown 80% YoY. The key was building dedicated enterprise-focused channel partners and improving our SOC 2 compliance certifications. Large enterprises now represent 25% of new bookings.
+
+Interviewer: How has the economic environment affected sales cycles?
+
+Michael Peters: Surprisingly, security budgets have held up well. The increase in ransomware attacks has made cybersecurity a board-level priority. We have seen more CFO involvement in deals, so we've developed ROI tools to quantify breach cost avoidance. Average sales cycle is actually down 15% because urgency is higher.
+
+Interviewer: Thank you for sharing these insights.
+
+Michael Peters: Happy to help. Let me know if you need any follow-up data.

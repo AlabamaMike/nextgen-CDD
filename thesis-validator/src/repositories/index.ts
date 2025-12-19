@@ -34,6 +34,13 @@ export type {
   EngagementDTO,
   EngagementRow,
 } from './engagement-repository.js';
+export { ExpertCallRepository } from './expert-call-repository.js';
+export type {
+  CreateExpertCallParams,
+  ExpertCallDTO,
+  ExpertCallStatus,
+  UpdateExpertCallParams,
+} from './expert-call-repository.js';
 export { ResearchJobRepository } from './research-job-repository.js';
 export type {
   CreateResearchJobParams,

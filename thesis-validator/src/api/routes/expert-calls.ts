@@ -27,6 +27,42 @@ import { publishEvent } from '../websocket/events.js';
 const expertCallRepo = new ExpertCallRepository();
 
 /**
+ * Simple in-memory rate limiter for batch uploads
+ * Limits requests per user per time window
+ */
+const BATCH_RATE_LIMIT = {
+  maxRequests: 5, // Max 5 batch uploads
+  windowMs: 60_000, // Per minute
+};
+
+const batchRateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function checkBatchRateLimit(userId: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const record = batchRateLimitStore.get(userId);
+
+  // Clean up expired entries periodically
+  if (Math.random() < 0.01) {
+    for (const [key, val] of batchRateLimitStore) {
+      if (val.resetAt < now) batchRateLimitStore.delete(key);
+    }
+  }
+
+  if (!record || record.resetAt < now) {
+    // New window
+    batchRateLimitStore.set(userId, { count: 1, resetAt: now + BATCH_RATE_LIMIT.windowMs });
+    return { allowed: true };
+  }
+
+  if (record.count >= BATCH_RATE_LIMIT.maxRequests) {
+    return { allowed: false, retryAfter: Math.ceil((record.resetAt - now) / 1000) };
+  }
+
+  record.count++;
+  return { allowed: true };
+}
+
+/**
  * Parse call date from transcript header/metadata
  * Looks for common date patterns in the first few lines
  * Returns ISO date string or null if not found
@@ -550,7 +586,9 @@ export async function registerExpertCallRoutes(fastify: FastifyInstance): Promis
       preHandler: requireEngagementAccess('editor'),
       schema: {
         body: z.object({
-          transcript: z.string().min(10, 'Transcript must be at least 10 characters'),
+          transcript: z.string()
+            .min(10, 'Transcript must be at least 10 characters')
+            .max(1_000_000, 'Transcript too large (max 1MB)'),
           filename: z.string().optional(),
           // Accept datetime-local format (YYYY-MM-DDTHH:mm) or ISO 8601
           callDate: z.string().refine(
@@ -680,7 +718,9 @@ export async function registerExpertCallRoutes(fastify: FastifyInstance): Promis
       schema: {
         body: z.object({
           transcripts: z.array(z.object({
-            transcript: z.string().min(10, 'Transcript must be at least 10 characters'),
+            transcript: z.string()
+              .min(10, 'Transcript must be at least 10 characters')
+              .max(1_000_000, 'Transcript too large (max 1MB)'),
             filename: z.string().optional(),
             callDate: z.string().refine(
               (val) => !isNaN(Date.parse(val)),
@@ -711,6 +751,18 @@ export async function registerExpertCallRoutes(fastify: FastifyInstance): Promis
     ) => {
       const { engagementId } = request.params;
       const { transcripts, focusAreas } = request.body;
+
+      // Rate limiting for batch uploads
+      const userId = (request as unknown as { user?: { id: string } }).user?.id ?? 'anonymous';
+      const rateCheck = checkBatchRateLimit(userId);
+      if (!rateCheck.allowed) {
+        reply.status(429).send({
+          error: 'Too Many Requests',
+          message: `Rate limit exceeded. Max ${BATCH_RATE_LIMIT.maxRequests} batch uploads per minute.`,
+          retryAfter: rateCheck.retryAfter,
+        });
+        return;
+      }
 
       // Verify engagement exists
       const pool = getPool();
